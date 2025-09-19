@@ -1,0 +1,72 @@
+{
+  "name": "test",
+  "version": "1.0.0",
+  "description": "hz",
+  "repository": "none",
+  "author": "none",
+  "type": "commonjs",
+  "license": "none",
+  "scripts": {
+    "lh": "yarn hardhat node",
+    "compile": "yarn hardhat compile",
+    "coverage": "yarn hardhat clean; yarn hardhat coverage",
+    "size": "yarn hardhat size-contracts",
+    "abi": "yarn hardhat run scripts/abi.ts --network localhost",
+    "license:spdx": "ts-node scripts/spdx.ts",
+
+    "test:main": "yarn hardhat test",
+    "test:lh": "yarn hardhat test --network localhost",
+
+    "verify:lh": "yarn hardhat verify --network localhost",
+    "verify:bsc": "yarn hardhat verify --network bsc",
+    "verify:bsctest": "yarn hardhat verify --network bsctest",
+
+    "deploy:lh": "yarn hardhat run scripts/deploy.ts --network localhost",
+    "deploy:bsctest": "yarn hardhat run scripts/deploy.ts --network bsctest",
+    "deploy:bsc": "yarn hardhat run scripts/deploy.ts --network bsc",
+
+    "cli:lh": "yarn hardhat run scripts/cli.ts --network localhost",
+    "cli:bsctest": "yarn hardhat run scripts/cli.ts --network bsctest",
+
+    "dev:lh": "yarn hardhat run scripts/dev.ts --network localhost",
+    "dev:bsctest": "yarn hardhat run scripts/dev.ts --network bsctest"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.9",
+    "@nomicfoundation/hardhat-ethers": "^3.0.9",
+    "@nomicfoundation/hardhat-ignition": "^0.15.11",
+    "@nomicfoundation/hardhat-ignition-ethers": "^0.15.12",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.12",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.14",
+    "@nomicfoundation/ignition-core": "^0.15.11",
+    "@typechain/ethers-v6": "0.5.1",
+    "@typechain/hardhat": "9.1.0",
+    "@types/chai": "5.2.2",
+    "@types/mocha": "10.0.10",
+    "@types/node": "24.0.3",
+    "chai": "^4.5.0",
+    "dotenv": "^16.5.0",
+    "ethers": "^6.14.4",
+    "hardhat": "^2.24.3",
+    "hardhat-abi-exporter": "^2.11.0",
+    "hardhat-gas-reporter": "^2.3.0",
+    "solidity-coverage": "^0.8.16",
+    "testweave-sdk": "^0.2.2",
+    "ts-node": "10.9.2",
+    "typechain": "^8.3.1",
+    "typescript": "5.8.3"
+  },
+  "dependencies": {
+    "@bnb-chain/bsc-cross-greenfield-sdk": "^0.0.3",
+    "@bnb-chain/greenfield-contracts": "^1.2.2",
+    "@bnb-chain/greenfield-contracts-sdk": "^1.1.0",
+    "@bnb-chain/greenfield-cosmos-types": "^0.4.0",
+    "@bnb-chain/greenfield-js-sdk": "^2.2.2",
+    "@bnb-chain/reed-solomon": "^1.1.4",
+    "@openzeppelin/contracts": "^5.3.0",
+    "alchemy-sdk": "^3.6.0",
+    "cross-fetch": "^4.1.0",
+    "node-fetch": "^3.3.2"
+  }
+}
