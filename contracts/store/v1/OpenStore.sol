@@ -1130,6 +1130,7 @@ contract OpenStore is PluginManager {
         if (state.blockProposals[blockId][proposer].id != 0) {
             revert OpenStoreError(ERROR_PROPOSAL_VALIDATOR_ALREADY_EXISTS);
         }
+        // TODO from should be == nextToPropose
 
         if (state.blockProposalsHashes[blockId][blockRef.objectHash]) {
             revert OpenStoreError(ERROR_PROPOSAL_HASH_ALREADY_EXISTS);
