@@ -1395,7 +1395,8 @@ contract OpenStore is PluginManager {
         uint256 blockId,
         uint256[] memory unavailableReqVotes
     ) private view returns (uint256) {
-        uint256 votesCounter = state.validators[proposer].totalBalance;
+        uint256 proposerVotePower = state.validators[proposer].totalBalance;
+        uint256 votesCounter = proposerVotePower;
         address[] memory voters = state.blockVoters[blockId][proposer];
 
         for (uint256 y = 0; y < voters.length; y++) {
@@ -1403,18 +1404,26 @@ contract OpenStore is PluginManager {
             uint256 voterPower = state.validators[voter].totalBalance;
             votesCounter += voterPower;
 
-            if (unavailableReqVotes.length > 0) {
-                uint128 mask = state.masks[blockId][voter];
-                if (mask > 0) {
-                    for (uint256 bit = 0; bit < unavailableReqVotes.length; bit++) {
-                        if ((mask >> bit) & 1 == 1) {
-                            // This modification to a memory array passed by reference is key.
-                            unavailableReqVotes[bit] += voterPower;
-                        }
+            uint128 mask = state.masks[blockId][voter];
+            if (mask > 0) {
+                for (uint256 bit = 0; bit < unavailableReqVotes.length; bit++) {
+                    if ((mask >> bit) & 1 == 1) {
+                        // This modification to a memory array passed by reference is key.
+                        unavailableReqVotes[bit] += voterPower;
                     }
                 }
             }
         }
+
+        // TODO check correctness
+        uint256 proposerResultMask = state.blockProposals[blockId][proposer];
+        for (uint256 bit = 0; bit < unavailableReqVotes.length; bit += 2) {
+            if ((proposerResultMask >> bit) & 2 == 0) { // 2 -- 0x11 so both bytes will be covered
+                // This modification to a memory array passed by reference is key.
+                unavailableReqVotes[bit] += proposerVotePower;
+            }
+        }
+
         return votesCounter;
     }
 
