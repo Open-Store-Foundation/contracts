@@ -22,6 +22,8 @@ contract AppDistributionPluginV1 is Plugin {
 
     bytes32 internal constant APP_DISTRIBUTION_V1 = keccak256("openstore.plugin.storage.AppDistributionPlugin.v1");
 
+    event DistributionListChanged();
+
     /**
      * @dev Returns the storage reference for this plugin's data
      * @return ds Storage reference to the plugin data
@@ -63,6 +65,8 @@ contract AppDistributionPluginV1 is Plugin {
         AppDistributionPluginV1Data storage data = state();
         data.typeId = _typeId;
         data.sources = _sources;
+
+        emit DistributionListChanged();
     }
 
     /**

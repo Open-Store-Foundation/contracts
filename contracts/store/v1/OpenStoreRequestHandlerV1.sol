@@ -3,12 +3,11 @@ pragma solidity ^0.8.21;
 
 import "./OpenStore.sol";
 import "./OpenStoreStorage.sol";
-import "hardhat/console.sol";
-import {BytesParser} from "../libs/BytesParser.sol";
-import {IAssetlinksOracle} from "../oracle/AssetlinksOracle.sol";
+import {BytesParser} from "../../libs/BytesParser.sol";
+import {IAssetlinksOracle} from "../../oracle/AssetlinksOracle.sol";
 import {IOpenStoreRequestHandler} from "./IOpenStoreRequestHandler.sol";
 import {OpenStoreStorage} from "./OpenStoreStorage.sol";
-import {PluginOwnable} from "../plugin/PluginOwnable.sol";
+import {PluginOwnable} from "../../plugin/PluginOwnable.sol";
 
 /**
  * @title OpenStoreRequestHandlerV1
@@ -127,20 +126,16 @@ contract OpenStoreRequestHandlerV1 is IOpenStoreRequestHandler {
         OpenStoreState storage state = OpenStoreStorage.openStoreState();
         OpenStoreVault storage vault = OpenStoreStorage.openStoreVault();
 
-        console.log("HELLO");
         for (uint256 i = 0; i < count; i++) {
-            console.log("HELLO1");
             uint256 status = (result >> (i * 2)) & 3; // 3 - 0b11
             if (status != STATUS_SUCCESS) {
                 return;
             }
 
-            console.log("HELLO2");
             uint256 requestId = fromRequestId + i;
             RequestInfo memory req = state.requests[requestId];
 
             if (req.reqType == 1) {
-                console.log("HELLO3");
                 uint256 _versionCode = req.data.toUint256(0);
                 uint256 _ownerVersion = req.data.toUint256(32);
                 vault.builds[req.target][_versionCode] = _ownerVersion;
@@ -148,7 +143,6 @@ contract OpenStoreRequestHandlerV1 is IOpenStoreRequestHandler {
                 uint256 _trackId = req.data.toUint256(64);
                 uint256 _existingVersion = vault.tracks[req.target][_trackId];
                 if (_versionCode > 0 && _trackId > 0 && _versionCode > _existingVersion) {
-                    console.log("HELLO4", req.target, _trackId, _versionCode);
                     vault.tracks[req.target][_trackId] = _versionCode;
                 }
             }

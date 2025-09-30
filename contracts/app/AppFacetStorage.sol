@@ -13,7 +13,7 @@ pragma solidity ^0.8.21;
 struct AppGeneralInfo {
     string id;
     string name;
-    string description;
+    bytes description; // base64
 
     uint16 protocolId;
     uint16 categoryId;

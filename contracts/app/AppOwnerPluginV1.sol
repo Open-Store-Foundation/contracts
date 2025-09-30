@@ -36,6 +36,9 @@ contract AppOwnerPluginV1 is Plugin, VersionableOwner {
     /// @dev Custom error for app owner plugin failures
     /// @param code Error code indicating the specific failure type
     error AppOwnerPluginError(uint32 code);
+
+    event AppOwnerChanged();
+
     uint32 constant private PROOF_EMPTY = 1;
     uint32 constant private FINGERPRINT_PROOF_MISMATCH = 2;
 
@@ -109,6 +112,8 @@ contract AppOwnerPluginV1 is Plugin, VersionableOwner {
             fingerprints: _fingerprints,
             proofs: _proofs
         }));
+
+        emit AppOwnerChanged();
     }
 
     /**

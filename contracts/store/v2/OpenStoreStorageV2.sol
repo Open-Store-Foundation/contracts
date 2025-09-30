@@ -28,9 +28,9 @@ pragma solidity ^0.8.21;
     struct Validator {
         uint256 version;
 
-        uint256 validationCount;
-        uint256 totalBalance;
+        uint256 validatedRequests;
 
+        uint256 balanceAndPower;
         int256 withdrawStatus;
 
         uint256 nextRequestIdToVote;
@@ -43,20 +43,19 @@ pragma solidity ^0.8.21;
  */
     struct OpenStoreState {
         // Validators
+        uint256 totalBalance;
         mapping(address => Validator) validators;           // validator address -> validator data
 
         // Requests
         uint256 nextRequestIdToCreate;             // Next request ID to be assigned
-        uint256 nextRequestIdToVote;        // Next request ID to be finalized
-        uint256 nextRequestIdToFinalize;        // Next request ID to be finalized
+        uint256 nextRequestIdToVote;               // Next request ID to be finalized
 
         mapping(uint256 => RequestInfo) requests;           // requestId -> request data
-        mapping(uint256 => uint256) requestVotingCreatedAt; // blockId -> voting start timestamp
+        mapping(uint256 => uint256) requestVotingDeadline;  // requestId -> voting deadline timestamp
 
-        // Voting
-        mapping(uint256 => mapping(address => address[])) blockVoters;  // blockId -> proposer -> voters
-        mapping(uint256 => mapping(address => address)) votes;          // blockId -> voter -> voted proposer
-        mapping(uint256 => mapping(address => uint128)) masks;          // blockId -> voter -> unavailability mask
+        mapping(uint256 => mapping(uint8 => uint256)) votingState; // reqId - status - uint256(uint128(balance) and uint128(power))
+        mapping(uint256 => mapping(address => uint256)) votes; // reqId - validator - uint256(uint128(balance) and uint120(power) and uint8(status))
+        mapping(uint256 => uint8) statusWinner;
     }
 
 //////////////////
@@ -67,9 +66,6 @@ pragma solidity ^0.8.21;
  * @dev Storage for validated builds and release tracks
  */
     struct OpenStoreVault {
-        mapping(address => mapping(uint256 => uint256)) builds;     // app -> buildId -> ownerVersion
-        mapping(address => mapping(uint256 => uint256)) tracks;     // app -> trackId -> latest buildId
-        // Track IDs: 1=release, 2=open-beta, 3=alpha, custom=4+
         mapping(address => bool) visibility;                        // app -> is_visible
     }
 
@@ -82,32 +78,15 @@ pragma solidity ^0.8.21;
  */
     struct OpenStoreConfig {
         // Main
-        uint64 version;                     // Protocol version
-        uint64 minValidatorVersion;         // Minimum required validator version
         bool isRequestsSuspended;           // Flag to suspend new validation requests
-        bool isQueueSuspended;              // Flag to suspend validator queue operations
+        bool isVoteSuspended;              // Flag to suspend validator queue operations
 
-        address oracle;                     // Address of the assetlinks oracle
-        address requestHandler;             // Address of the request handler contract
-
-        // Limits
-        uint8 maxParallelProposals;         // Maximum number of parallel proposals allowed
-        uint256 maxReqPerBlock;             // Maximum requests allowed per block
-        uint256 maxInactiveBlocks;          // Maximum inactive blocks before penalties
+        uint64 minValidatorVersion;         // Minimum required validator version
+        address oracle;
 
         // Economic Parameters
         uint256 validationRequestAmount;    // Fee for request validation
-        uint256 baseProposalAmount;         // Base stake required for proposals
-        uint256 baseVoteAmount;             // Base cost for voting
-        uint256 overdueProposalFee;         // Penalty for overdue proposals
-        uint256 inactiveFee;                // Penalty for inactivity
         uint256 minStakeAmount;             // Minimum stake to become validator
-        uint256 basicAmount;          // Amount that must remain locked
-
-        // Time Windows
-        uint256 proposalBlockWindow;        // Time window for primary proposer exclusivity
-        uint256 voteBlockWindow;            // Time window for voting on proposals
-        uint256 minFinalizationWindow;      // Minimum wait time between block finalizations
     }
 
 //////////////////
@@ -175,40 +154,10 @@ library OpenStoreStorageV2 {
 
         // Main
         to.oracle = from.oracle;
-        to.requestHandler = from.requestHandler;
-
-        require(to.version < from.version, "1");
-        to.version = from.version;
-
         to.minValidatorVersion = from.minValidatorVersion;
-
-        // Limits
-        to.maxParallelProposals = from.maxParallelProposals;
-        require(from.maxReqPerBlock <= 128, "maxReqPerBlock can't be more than 128");
-        to.maxReqPerBlock = from.maxReqPerBlock;
-        to.maxInactiveBlocks = from.maxInactiveBlocks;
 
         // Amounts
         to.validationRequestAmount = from.validationRequestAmount;
-        to.baseProposalAmount = from.baseProposalAmount;
-        to.baseVoteAmount = from.baseVoteAmount;
-        require(from.overdueProposalFee < from.baseProposalAmount, "overdueProposalFee should be less than baseProposalAmount");
-        to.overdueProposalFee = from.overdueProposalFee;
-        to.inactiveFee = from.inactiveFee;
-
-        uint256 basicAmount = from.baseVoteAmount * from.maxParallelProposals; // maxParallel * vote
-        to.basicAmount = basicAmount;
-        require(
-            basicAmount + from.baseProposalAmount <= from.minStakeAmount,
-            "basicAmount+proposalAmount should be less or equal to minStakeAmount"
-        );
         to.minStakeAmount = from.minStakeAmount;
-
-        // Duration
-        to.proposalBlockWindow = from.proposalBlockWindow;
-        to.voteBlockWindow = from.voteBlockWindow;
-
-        require(from.minFinalizationWindow < from.voteBlockWindow, "4");
-        to.minFinalizationWindow = from.minFinalizationWindow;
     }
 }

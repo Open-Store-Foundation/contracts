@@ -76,7 +76,7 @@ contract PublisherAccountAppsPluginV1 is Plugin {
     function computeAppAddress(
         string memory _id,
         string memory _name,
-        string memory _description,
+        bytes memory _description,
 
         uint16 _protocolId,
         uint16 _platformId,
@@ -102,7 +102,7 @@ contract PublisherAccountAppsPluginV1 is Plugin {
     function createApp(
         string memory _id,
         string memory _name,
-        string memory _description,
+        bytes memory _description,
 
         uint16 _protocolId,
         uint16 _platformId,
@@ -128,7 +128,7 @@ contract PublisherAccountAppsPluginV1 is Plugin {
         address sender,
         string memory _id,
         string memory _name,
-        string memory _description,
+        bytes memory _description,
 
         uint16 _protocolId,
         uint16 _platformId,
@@ -153,7 +153,7 @@ contract PublisherAccountAppsPluginV1 is Plugin {
     function _createApp(
         string memory _id,
         string memory _name,
-        string memory _description,
+        bytes memory _description,
 
         uint16 _protocolId,
         uint16 _platformId,
@@ -189,7 +189,7 @@ contract PublisherAccountAppsPluginV1 is Plugin {
     function _getBytecode(
         string memory _id,
         string memory _name,
-        string memory _description,
+        bytes memory _description,
     
         uint16 _protocolId,
         uint16 _platformId,

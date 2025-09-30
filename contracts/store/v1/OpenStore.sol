@@ -3,15 +3,15 @@ pragma solidity ^0.8.21;
 
 import "./OpenStoreStorage.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
-import {BitmaskComparator} from "../libs/BitmaskComparator.sol";
-import {BytesParser} from "../libs/BytesParser.sol";
+import {BitmaskComparator} from "../../libs/BitmaskComparator.sol";
+import {BytesParser} from "../../libs/BytesParser.sol";
 import {IOpenStoreRequestHandler} from "./IOpenStoreRequestHandler.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {OpenStoreConfig, OpenStoreState, OpenStoreStorage, OpenStoreVault, Validator, BlockRef, RequestInfo} from "./OpenStoreStorage.sol";
-import {PluginManager} from "../plugin/PluginManager.sol";
-import {PluginOwnable} from "../plugin/PluginOwnable.sol";
-import {Trustable} from "../multicall/Trustable.sol";
-import {VersionableOwner} from "../interfaces/VersionableOwner.sol";
+import {PluginManager} from "../../plugin/PluginManager.sol";
+import {PluginOwnable} from "../../plugin/PluginOwnable.sol";
+import {Trustable} from "../../multicall/Trustable.sol";
+import {VersionableOwner} from "../../interfaces/VersionableOwner.sol";
 
 /**
  * @title OpenStore
@@ -255,7 +255,7 @@ contract OpenStore is PluginManager {
         return config.minStakeAmount;
     }
 
-    function setValidationRequestAmount(uint256 amount) external {
+    function setValidationRequestAmount(uint256 amount) external onlyOwner {
         OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
         config.validationRequestAmount = amount;
     }
@@ -287,7 +287,7 @@ contract OpenStore is PluginManager {
      * @param isSuspended True to suspend requests, false to resume
      * @dev Can be called by owner or authorized addresses for emergency suspension
      */
-    function setIsRequestsSuspended(bool isSuspended) public {
+    function setIsRequestsSuspended(bool isSuspended) public onlyOwner {
         OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
         config.isRequestsSuspended = isSuspended;
 
@@ -299,7 +299,7 @@ contract OpenStore is PluginManager {
      * @param isSuspended True to suspend queue, false to resume
      * @dev Can be called by owner or authorized addresses for emergency suspension
      */
-    function setIsQueueSuspended(bool isSuspended) public {
+    function setIsQueueSuspended(bool isSuspended) public onlyOwner {
         OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
         config.isQueueSuspended = isSuspended;
 
@@ -1417,7 +1417,7 @@ contract OpenStore is PluginManager {
         }
 
         // TODO check correctness
-        uint256 proposerResultMask = state.blockProposals[blockId][proposer];
+        uint256 proposerResultMask = state.blockProposals[blockId][proposer].result;
         for (uint256 bit = 0; bit < unavailableReqVotes.length; bit += 2) {
             if ((proposerResultMask >> bit) & 2 == 0) { // 2 -- 0x11 so both bytes will be covered
                 // This modification to a memory array passed by reference is key.

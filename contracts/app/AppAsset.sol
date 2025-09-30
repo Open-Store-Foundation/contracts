@@ -8,6 +8,8 @@ import {PluginOwnable} from "../plugin/PluginOwnable.sol";
 import {StringVerifier} from "../libs/StringVerifier.sol";
 import {Trustable} from "../multicall/Trustable.sol";
 
+
+
 /**
  * @title AppAsset
  * @dev Core application asset contract that manages app metadata and plugins
@@ -31,6 +33,12 @@ contract AppAsset is PluginManager {
     uint256 constant private MIN_LENGTH = 3;
     uint256 constant private MAX_NAME_LENGTH = 40;
     uint256 constant private MAX_PACKAGE_LENGTH = 150;
+
+    event AppAssetFullInfoUpdated();
+    event AppAssetNameUpdated(string name);
+    event AppAssetDescriptionUpdated(bytes content);
+    event AppAssetCategoryUpdated(uint16 categoryId);
+    event AppAssetPlatformUpdated(uint16 platformId);
 
     /// @dev The developer address who created this application
     address public immutable developer;
@@ -67,7 +75,7 @@ contract AppAsset is PluginManager {
 
         string memory _id,
         string memory _name,
-        string memory _description,
+        bytes memory _description,
 
         uint16 _protocolId,
         uint16 _platformId,
@@ -147,6 +155,16 @@ contract AppAsset is PluginManager {
      * @dev Returns the protocol ID for this application
      * @return The protocol identifier
      */
+    function getCategory() public view returns (uint16) {
+        AppGeneralInfo memory info = AppFacetStorage.general();
+        return info.categoryId;
+    }
+
+
+    /**
+     * @dev Returns the protocol ID for this application
+     * @return The protocol identifier
+     */
     function getProtocol() public view returns (uint16) {
         AppGeneralInfo memory info = AppFacetStorage.general();
         return info.protocolId;
@@ -160,13 +178,15 @@ contract AppAsset is PluginManager {
      */
     function updateGeneralInfo(
         string calldata _name,
-        string calldata _description,
+        bytes calldata _description,
         uint16 _categoryId
     ) external onlyOwner verifyName(_name) {
         AppGeneralInfo storage info = AppFacetStorage.general();
         info.name = _name;
         info.description = _description;
         info.categoryId = _categoryId;
+
+        emit AppAssetFullInfoUpdated();
     }
 
     /**
@@ -176,24 +196,30 @@ contract AppAsset is PluginManager {
     function setName(string calldata _name) external onlyOwner verifyName(_name) {
         AppGeneralInfo storage info = AppFacetStorage.general();
         info.name = _name;
+
+        emit AppAssetNameUpdated(_name);
     }
 
     /**
      * @dev Updates the application description
      * @param _description The new description for the application
      */
-    function setDescription(string calldata _description) external onlyOwner {
+    function setDescription(bytes calldata _description) external onlyOwner {
         AppGeneralInfo storage info = AppFacetStorage.general();
         info.description = _description;
+
+        emit AppAssetDescriptionUpdated(_description);
     }
 
     /**
      * @dev Updates the application category
      * @param _categoryId The new category identifier
      */
-    function setCategory(uint16 _categoryId) external onlyOwner {
+    function setCategoryId(uint16 _categoryId) external onlyOwner {
         AppGeneralInfo storage info = AppFacetStorage.general();
         info.categoryId = _categoryId;
+
+        emit AppAssetCategoryUpdated(_categoryId);
     }
 
     /**
@@ -221,5 +247,7 @@ contract AppAsset is PluginManager {
     function _setProtocolId(uint16 _protocolId) private {
         AppGeneralInfo storage info = AppFacetStorage.general();
         info.protocolId = _protocolId;
+
+        emit AppAssetPlatformUpdated(_protocolId);
     }
 }
