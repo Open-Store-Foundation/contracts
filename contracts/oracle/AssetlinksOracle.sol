@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.21;
 
-import {VersionableOwner} from "../interfaces/VersionableOwner.sol";
-import {Trustable} from "../multicall/Trustable.sol";
 import {PluginManager} from "../plugin/PluginManager.sol";
-import {PluginOwnable} from "../plugin/PluginOwnable.sol";
+import {PluginManager} from "../plugin/PluginManager.sol";
+import {Trustable} from "../multicall/Trustable.sol";
+import {VersionableOwner} from "../interfaces/VersionableOwner.sol";
 
 /**
  * @title IAssetlinksOracle

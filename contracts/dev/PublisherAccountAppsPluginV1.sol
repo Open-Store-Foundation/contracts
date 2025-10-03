@@ -10,9 +10,11 @@ import {Plugin} from "../plugin/Plugin.sol";
 /**
  * @dev Storage structure for the PublisherAccountAppsPluginV1
  * @param apps Mapping from app ID hash to deployed app contract address
+ * @param pendingTransfers Mapping from app ID hash to approved new owner address
  */
 struct PublisherAccountAppsPluginV1State {
     mapping(bytes32 => address) apps;
+    mapping(bytes32 => address) pendingTransfers;
 }
 
 /**
@@ -28,6 +30,8 @@ contract PublisherAccountAppsPluginV1 is Plugin {
 
     // Error codes
     uint32 private constant APP_ALREADY_EXISTS = 1;
+    uint32 private constant APP_NOT_FOUND = 2;
+    uint32 private constant TRANSFER_NOT_APPROVED = 3;
 
     // Plugins
     bytes32 public constant APP_PLUGINS = keccak256("openstore.plugins.default.AppAsset.v1");
@@ -38,6 +42,16 @@ contract PublisherAccountAppsPluginV1 is Plugin {
     /// @param id The unique identifier of the app
     /// @param name The display name of the app
     event AppCreated(address indexed appAddress, string id, string name);
+
+    /// @dev Emitted when an app transfer is approved
+    /// @param appAddress The address of the app being transferred
+    /// @param newOwner The address approved to receive the app
+    event AppTransferApproved(address indexed appAddress, address indexed newOwner);
+
+    /// @dev Emitted when an app transfer is completed
+    /// @param appAddress The address of the transferred app
+    /// @param newOwner The address that received the app ownership
+    event AppTransferred(address indexed appAddress, address indexed newOwner);
 
     address private immutable pluginStorage;
 
@@ -108,10 +122,7 @@ contract PublisherAccountAppsPluginV1 is Plugin {
         uint16 _platformId,
         uint16 _categoryId
     ) external onlyOwner {
-        _createApp(
-            _id, _name, _description,
-            _protocolId, _platformId, _categoryId
-        );
+        _createApp(_id, _name, _description, _protocolId, _platformId, _categoryId);
     }
 
     /**
@@ -135,10 +146,7 @@ contract PublisherAccountAppsPluginV1 is Plugin {
         uint16 _categoryId
     ) external onlyMulticall {
         _checkOwner(sender);
-        _createApp(
-            _id, _name, _description,
-            _protocolId, _platformId, _categoryId
-        );
+        _createApp(_id, _name, _description, _protocolId, _platformId, _categoryId);
     }
 
     /**
@@ -199,7 +207,6 @@ contract PublisherAccountAppsPluginV1 is Plugin {
         (address[] memory addrs, bytes[] memory data, bytes4[][] memory selectors) = store.getDefaultPluginsById(APP_PLUGINS);
         
         bytes memory constructorArgs = abi.encode(
-            owner(),
             address(this),
             _id,
             _name,
@@ -226,5 +233,115 @@ contract PublisherAccountAppsPluginV1 is Plugin {
         bytes32 idHash = keccak256(bytes(id));
         PublisherAccountAppsPluginV1State storage state = state();
         return state.apps[idHash];
+    }
+
+    /**
+     * @dev Approves a transfer of app ownership to a new owner (owner only)
+     * @notice Only one pending transfer can exist per app at a time. Approving a new transfer overwrites any previous approval.
+     * @param id The unique identifier of the app
+     * @param newOwner The address that will be approved to accept the transfer
+     * @custom:throws APP_NOT_FOUND if the app doesn't belong to this publisher account
+     */
+    function approveAppTransfer(string calldata id, address newOwner) external onlyOwner {
+        _approveAppTransfer(id, newOwner);
+    }
+
+    /**
+     * @dev Approves a transfer of app ownership to a new owner via multicall
+     * @param sender The address initiating the multicall
+     * @param id The unique identifier of the app
+     * @param newOwner The address that will be approved to accept the transfer
+     * @custom:throws APP_NOT_FOUND if the app doesn't belong to this publisher account
+     */
+    function approveAppTransfer(address sender, string calldata id, address newOwner) external onlyMulticall {
+        _checkOwner(sender);
+        _approveAppTransfer(id, newOwner);
+    }
+
+    /**
+     * @dev Internal function to approve app transfer
+     * @param id The unique identifier of the app
+     * @param newOwner The address that will be approved to accept the transfer
+     */
+    function _approveAppTransfer(string calldata id, address newOwner) private {
+        bytes32 idHash = keccak256(bytes(id));
+        PublisherAccountAppsPluginV1State storage s = state();
+        address app = s.apps[idHash];
+
+        if (app == address(0)) {
+            revert PublisherAccountAppsPluginError(APP_NOT_FOUND);
+        }
+
+        s.pendingTransfers[idHash] = newOwner;
+
+        emit AppTransferApproved(app, newOwner);
+    }
+
+    /**
+     * @dev Called by the new publisher to take an app from this publisher
+     * @notice Only the approved recipient can call this to complete the transfer
+     * @param app The address of the app contract to transfer
+     * @return id The unique identifier of the app being transferred
+     * @custom:throws TRANSFER_NOT_APPROVED if caller is not the approved recipient
+     */
+    function commitAppTransfer(string calldata id) external returns (bytes32) {
+        PublisherAccountAppsPluginV1State storage s = state();
+        bytes32 idHash = keccak256(bytes(id));
+        address approvedOwner = s.pendingTransfers[idHash];
+
+        if (approvedOwner != msg.sender) {
+            revert PublisherAccountAppsPluginError(TRANSFER_NOT_APPROVED);
+        }
+
+        address app = s.apps[idHash];
+        delete s.apps[idHash];
+        delete s.pendingTransfers[idHash];
+
+        AppAsset(app).transferOwnership(msg.sender);
+
+        emit AppTransferred(app, msg.sender);
+
+        return idHash;
+    }
+
+    /**
+     * @dev Transfers an app from the old publisher to this publisher
+     * @notice Calls takeAppFrom on the old publisher and adds the app to this publisher's list
+     * @param app The address of the app contract to transfer
+     * @custom:throws APP_ALREADY_EXISTS if an app with the returned ID already exists
+     */
+    function transferAppFrom(address app) external onlyOwner {
+        _transferAppFrom(app);
+    }
+
+    /**
+     * @dev Transfers an app from the old publisher to this publisher via multicall
+     * @param sender The address initiating the multicall
+     * @param app The address of the app contract to transfer
+     * @custom:throws APP_ALREADY_EXISTS if an app with the returned ID already exists
+     */
+    function transferAppFrom(address sender, address app) external onlyMulticall {
+        _checkOwner(sender);
+        _transferAppFrom(app);
+    }
+
+    /**
+     * @dev Internal function to transfer an app from another publisher
+     * @param app The address of the app contract to transfer
+     */
+    function _transferAppFrom(address app) private {
+        AppAsset appAsset = AppAsset(app);
+        address oldPublisher = appAsset.ownerDelegate();
+
+        bytes32 idHash = PublisherAccountAppsPluginV1(oldPublisher)
+            .commitAppTransfer(app);
+
+        PublisherAccountAppsPluginV1State storage s = state();
+
+        if (s.apps[idHash] != address(0)) {
+            revert PublisherAccountAppsPluginError(APP_ALREADY_EXISTS);
+        }
+
+        s.apps[idHash] = app;
     }
 }

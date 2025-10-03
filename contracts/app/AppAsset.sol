@@ -4,18 +4,16 @@ pragma solidity ^0.8.21;
 import "./AppFacetStorage.sol";
 import {AppFacetStorage} from "./AppFacetStorage.sol";
 import {PluginManager} from "../plugin/PluginManager.sol";
-import {PluginOwnable} from "../plugin/PluginOwnable.sol";
+import {PluginOwnerDelegate} from "../plugin/PluginOwnerDelegate.sol";
 import {StringVerifier} from "../libs/StringVerifier.sol";
 import {Trustable} from "../multicall/Trustable.sol";
-
-
 
 /**
  * @title AppAsset
  * @dev Core application asset contract that manages app metadata and plugins
  * @notice This contract handles app information, validation, and plugin management for applications in the OpenStore
  */
-contract AppAsset is PluginManager {
+contract AppAsset is PluginManager, PluginOwnerDelegate {
 
     using StringVerifier for string;
 
@@ -26,8 +24,7 @@ contract AppAsset is PluginManager {
     // Error Codes
     uint32 constant private PACKAGE_NAME_LENGTH = 1;
     uint32 constant private NAME_LENGTH = 2;
-    uint32 constant private DEVELOPER_ADDRESS_ZERO = 3;
-    uint32 constant private PLUGIN_SELECTOR_LENGTH_MISMATCH = 4;
+    uint32 constant private PLUGIN_SELECTOR_LENGTH_MISMATCH = 3;
 
     // Const
     uint256 constant private MIN_LENGTH = 3;
@@ -39,9 +36,6 @@ contract AppAsset is PluginManager {
     event AppAssetDescriptionUpdated(bytes content);
     event AppAssetCategoryUpdated(uint16 categoryId);
     event AppAssetPlatformUpdated(uint16 platformId);
-
-    /// @dev The developer address who created this application
-    address public immutable developer;
 
     /**
      * @dev Modifier to verify that the app name meets length requirements
@@ -56,9 +50,17 @@ contract AppAsset is PluginManager {
     }
 
     /**
+     * @dev Overrides ownership transfer to use delegated ownership pattern
+     * @param newOwner The address of the new owner delegate (typically a PublisherAccount)
+     * @notice Resolves multiple inheritance by explicitly calling PluginOwnerDelegate's implementation
+     */
+    function transferOwnership(address newOwner) internal override(PluginOwner, PluginOwnerDelegate) {
+        PluginOwnerDelegate.transferOwnership(newOwner);
+    }
+
+    /**
      * @dev Initializes a new app asset with metadata and plugins
-     * @param _owner The address that will own this app contract
-     * @param _developer The developer address for this application
+     * @param _developer The developer/publisher address that will own this app (PublisherAccount address)
      * @param _id The unique identifier for this app (package name)
      * @param _name The display name of the application
      * @param _description A description of the application
@@ -70,7 +72,6 @@ contract AppAsset is PluginManager {
      * @param _selectors Array of function selectors for each plugin
      */
     constructor(
-        address _owner,
         address _developer,
 
         string memory _id,
@@ -84,20 +85,14 @@ contract AppAsset is PluginManager {
         address[] memory _plugins,
         bytes[] memory _data,
         bytes4[][] memory _selectors
-    ) PluginManager(_owner) verifyName(_name) {
+    ) PluginManager(_developer) verifyName(_name) {
         if (!StringVerifier.isValidLength(_id, MIN_LENGTH, MAX_PACKAGE_LENGTH)) {
             revert AppError(PACKAGE_NAME_LENGTH);
-        }
-
-        if (_developer == address(0)) {
-            revert AppError(DEVELOPER_ADDRESS_ZERO);
         }
 
         if (_plugins.length != _selectors.length) {
             revert AppError(PLUGIN_SELECTOR_LENGTH_MISMATCH);
         }
-
-        developer = _developer;
 
         AppGeneralInfo storage info = AppFacetStorage.general();
         // Immutable

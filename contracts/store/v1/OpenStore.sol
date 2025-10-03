@@ -376,6 +376,10 @@ contract OpenStore is PluginManager {
      * @dev Controls whether the asset appears in public listings
      */
     function setAssetVisibility(address asset, bool isVisible) external {
+        if (msg.sender != PluginOwnable(asset).owner()) {
+            revert OpenStoreError(ERROR_NOT_TARGET_OWNER);
+        }
+
         OpenStoreVault storage vault = OpenStoreStorage.openStoreVault();
         vault.visibility[asset] = isVisible;
     }
