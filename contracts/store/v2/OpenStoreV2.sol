@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.10;
 
-import "../../libs/BitmaskComparator.sol";
 import "../../libs/BitPacking.sol";
+import "../../libs/BitmaskComparator.sol";
 import "../../libs/BytesParser.sol";
 import "../../oracle/AssetlinksOracle.sol";
 import "../../plugin/PluginOwnable.sol";

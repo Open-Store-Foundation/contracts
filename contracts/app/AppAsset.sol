@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.21;
 
+import "../plugin/PluginDelegatedOwner.sol";
 import "./AppFacetStorage.sol";
 import {AppFacetStorage} from "./AppFacetStorage.sol";
 import {PluginManager} from "../plugin/PluginManager.sol";
-import {PluginOwnerDelegate} from "../plugin/PluginOwnerDelegate.sol";
 import {StringVerifier} from "../libs/StringVerifier.sol";
 import {Trustable} from "../multicall/Trustable.sol";
 
@@ -13,7 +13,7 @@ import {Trustable} from "../multicall/Trustable.sol";
  * @dev Core application asset contract that manages app metadata and plugins
  * @notice This contract handles app information, validation, and plugin management for applications in the OpenStore
  */
-contract AppAsset is PluginManager, PluginOwnerDelegate {
+contract AppAsset is PluginManager, PluginDelegatedOwner {
 
     using StringVerifier for string;
 
@@ -50,12 +50,11 @@ contract AppAsset is PluginManager, PluginOwnerDelegate {
     }
 
     /**
-     * @dev Overrides ownership transfer to use delegated ownership pattern
-     * @param newOwner The address of the new owner delegate (typically a PublisherAccount)
-     * @notice Resolves multiple inheritance by explicitly calling PluginOwnerDelegate's implementation
+     * @dev Overrides ownership getter for delegated pattern
+     * @notice Resolves multiple inheritance by explicitly calling PluginDelegatedOwner's implementation
      */
-    function transferOwnership(address newOwner) internal override(PluginOwner, PluginOwnerDelegate) {
-        PluginOwnerDelegate.transferOwnership(newOwner);
+    function owner() public view virtual override(PluginOwnable, PluginDelegatedOwner) returns (address) {
+       return PluginDelegatedOwner.owner();
     }
 
     /**
@@ -141,7 +140,7 @@ contract AppAsset is PluginManager, PluginOwnerDelegate {
      * @dev Returns the description of this application
      * @return The application description
      */
-    function getDescription() public view returns (string memory) {
+    function getDescription() public view returns (bytes memory) {
         AppGeneralInfo memory info = AppFacetStorage.general();
         return info.description;
     }

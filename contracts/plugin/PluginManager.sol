@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.21;
 
+import "./PluginOwnable.sol";
 import {ITrustedCall} from "../multicall/ITrustedCall.sol";
+import {PluginOwnable} from "./PluginOwnable.sol";
 import {Trustable} from "../multicall/Trustable.sol";
 import {TrustedCalldata} from "../multicall/TrustedCalldata.sol";
-import {PluginOwner, PluginOwnable} from "./PluginOwnable.sol";
 
 /**
  * @title PluginManager

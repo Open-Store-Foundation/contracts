@@ -17,6 +17,16 @@ abstract contract PluginOwnable is Context {
     error OwnableUnauthorizedAccount(address account);
 
     /**
+     * @dev The owner is not a valid owner account. (eg. `address(0)`)
+     */
+    error OwnableInvalidOwner(address owner);
+
+    /// @dev Emitted when ownership is transferred from one account to another
+    /// @param previousOwner The address of the previous owner
+    /// @param newOwner The address of the new owner
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    /**
      * @dev Throws if called by any account other than the owner.
      */
     modifier onlyOwner() {
@@ -41,22 +51,7 @@ abstract contract PluginOwnable is Context {
     }
 }
 
-/**
- * @title PluginOwner
- * @dev Abstract contract extending PluginOwnable with ownership transfer capabilities
- * @notice Provides complete ownership management including transfer and renunciation
- */
 abstract contract PluginOwner is PluginOwnable {
-
-    /**
-     * @dev The owner is not a valid owner account. (eg. `address(0)`)
-     */
-    error OwnableInvalidOwner(address owner);
-
-    /// @dev Emitted when ownership is transferred from one account to another
-    /// @param previousOwner The address of the previous owner
-    /// @param newOwner The address of the new owner
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     /**
      * @dev Initializes the contract setting the provided address as the initial owner
@@ -66,28 +61,8 @@ abstract contract PluginOwner is PluginOwnable {
         if (initialOwner == address(0)) {
             revert OwnableInvalidOwner(address(0));
         }
-        _transferOwnership(initialOwner);
-    }
 
-    /**
-     * @dev Transfers ownership of the contract to a new account (`newOwner`).
-     * Can only be called by the current owner.
-     */
-    function transferOwnership(address newOwner) public virtual onlyOwner {
-        if (newOwner == address(0)) {
-            revert OwnableInvalidOwner(address(0));
-        }
-        _transferOwnership(newOwner);
-    }
-
-    /**
-     * @dev Transfers ownership of the contract to a new account (`newOwner`).
-     * Internal function without access restriction.
-     */
-    function _transferOwnership(address newOwner) internal virtual {
-        address oldOwner = PluginOwnerStorage.ownerData().owner;
-        PluginOwnerStorage.ownerData().owner = newOwner;
-        require(PluginOwnerStorage.ownerData().owner == newOwner, "wrong");
-        emit OwnershipTransferred(oldOwner, newOwner);
+        PluginOwnerStorage.ownerData().owner = initialOwner;
+        emit OwnershipTransferred(address(0), initialOwner);
     }
 }

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.21;
 
-import {PluginOwnable} from "./PluginOwnable.sol";
+import "./PluginOwnable.sol";
 import {PluginOwnerStorage} from "./PluginOwnerStorage.sol";
+import {TransferableOwner} from "../interfaces/TransferableOwner.sol";
 
 /**
  * @title PluginOwnerDelegate
@@ -16,24 +17,12 @@ import {PluginOwnerStorage} from "./PluginOwnerStorage.sol";
  * 
  * Example: AppAsset -> PublisherAccount -> Actual User
  */
-abstract contract PluginOwnerDelegate is PluginOwnable {
-
-    /**
-     * @dev The owner is not a valid owner account (e.g., address(0))
-     */
-    error OwnableInvalidOwner(address owner);
+abstract contract PluginDelegatedOwner is PluginOwnable, TransferableOwner {
 
     /**
      * @dev The caller is not authorized to perform delegate operations
      */
     error OwnableDelegateUnauthorizedAccount(address account);
-
-    /**
-     * @dev Emitted when ownership is transferred from one account to another
-     * @param previousOwner The address of the previous owner delegate
-     * @param newOwner The address of the new owner delegate
-     */
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     /**
      * @dev Modifier that checks if the caller is the owner delegate
@@ -70,7 +59,7 @@ abstract contract PluginOwnerDelegate is PluginOwnable {
      * @notice Can only be called by the current owner delegate
      * @custom:throws OwnableInvalidOwner if newOwner is the zero address
      */
-    function transferOwnership(address newOwner) public virtual override onlyOwnerDelegate {
+    function transferOwnership(address newOwner) external onlyOwnerDelegate {
         if (newOwner == address(0)) {
             revert OwnableInvalidOwner(address(0));
         }
