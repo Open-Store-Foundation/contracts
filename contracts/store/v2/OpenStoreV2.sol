@@ -101,7 +101,7 @@ contract OpenStoreV2 is PluginManager {
      * @notice Sets the validation request fee amount
      * @param amount The new validation request fee in wei
      */
-    function setValidationRequestAmount(uint256 amount) external {
+    function setValidationRequestAmount(uint256 amount) external onlyOwner {
         OpenStoreConfig storage config = OpenStoreStorageV2.openStoreConfig();
         config.validationRequestAmount = amount;
         emit ConfigChanged();
@@ -174,11 +174,12 @@ contract OpenStoreV2 is PluginManager {
         uint128 balance = balanceAndPower.unpackBalance() + uint128(msg.value);
         uint128 power = balanceAndPower.unpackPower();
 
-        if (balance > uint128(config.minStakeAmount)) {
+        if (balance < uint128(config.minStakeAmount)) {
             revert OpenStoreError(ERROR_INSUFFICIENT_STAKE);
         }
         
         state.validators[sender].balanceAndPower = BitPacking.packBalanceAndPower(balance, power);
+        state.validators[sender].withdrawStatus = -1;
 
 
         emit TopUp(sender, balance);

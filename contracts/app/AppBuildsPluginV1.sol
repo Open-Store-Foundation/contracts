@@ -47,7 +47,7 @@ contract AppBuildsPluginV1 is Plugin {
     // Const
     bytes32 internal constant APP_BUILD_V1 = keccak256("openstore.plugin.storage.AppBuildsPlugin.v1");
 
-    event AppBuildAdded(uint256 varsionCode);
+    event AppBuildAdded(uint256 versionCode);
 
     /**
      * @dev Returns the storage reference for this plugin's data
