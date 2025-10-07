@@ -3,7 +3,7 @@ import {ethers} from "hardhat";
 import {HardhatEthersSigner} from "@nomicfoundation/hardhat-ethers/signers";
 import {AssetlinksOracle} from "../typechain-types";
 import {expectSuccess, findEvent} from "./utils/contracts";
-import {getBytes, id, parseEther, toUtf8Bytes} from "ethers";
+import {getBytes, id, parseEther} from "ethers";
 import {ContractsDeployer} from "../scripts/deployer";
 import {Defaults} from "../scripts/defaults";
 import {AppManager, CoreManager, DevManager} from "../scripts/manager";
@@ -563,7 +563,6 @@ describe("AssetlinksOracle", function () {
             const appOwnerPlugin = appManager["appPlugins"].owner;
             expect(await appOwnerPlugin.ownerVersion()).to.equal(0);
 
-            console.log("owner adderss", await appOwnerPlugin.getAddress());
             await appOwnerPlugin["setAppOwner(string,bytes32[],bytes[])"](DOMAIN, [FINGERPRINT], [PROOF]);
             expect(await appOwnerPlugin.ownerVersion()).to.equal(1);
 
