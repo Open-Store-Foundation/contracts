@@ -284,7 +284,7 @@ describe("AppOwnerPluginV1", function () {
                     sampleOwnerData.fingerprints,
                     sampleOwnerData.proofs
                 )
-            ).to.be.revertedWithCustomError(ownerPlugin2, "OwnableUnauthorizedAccount")
+            ).to.be.revertedWithCustomError(ownerPlugin2, "OwnableDelegateUnauthorizedAccount")
                 .withArgs(user1.address);
         });
     });

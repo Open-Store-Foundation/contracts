@@ -108,6 +108,7 @@ contract AssetlinksOracle is PluginManager, IAssetlinksOracle {
     }
 
     /**
+     * @dev Sets the fee required for each verification request (owner only)
      * @param _verificationAmount The fee required for each verification request
      */
     function setVerificationAmount(uint256 _verificationAmount) external onlyOwner {

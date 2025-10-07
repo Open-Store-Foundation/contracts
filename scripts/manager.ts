@@ -256,6 +256,10 @@ export class AppManager {
         return await this.app.owner()
     }
 
+    async delegateOwner() {
+        return await this.app.delegateOwner()
+    }
+
     async generalInfo() {
         return await this.app.getGeneralInfo()
     }

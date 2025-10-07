@@ -7,7 +7,6 @@ import {getBytes, id, parseEther} from "ethers";
 import {ContractsDeployer} from "../scripts/deployer";
 import {Defaults} from "../scripts/defaults";
 import {AppManager, CoreManager, DevManager} from "../scripts/manager";
-import {multicall} from "../typechain-types/contracts";
 import {attachOrDeployMulticastContract} from "./utils/multicall";
 import {disableLogging} from "./utils/logger";
 
@@ -138,7 +137,7 @@ describe("AssetlinksOracle", function () {
             const noOwnerAppManager = await devManager.createApp({
                 id: "com.test.noowner",
                 name: "No Owner App",
-                description: "App without owner for testing",
+                description: "Test app for distribution plugin",
                 protocolId: 1,
                 platformId: 1,
                 categoryId: 1

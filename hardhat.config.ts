@@ -2,11 +2,12 @@ import {HardhatUserConfig} from "hardhat/config";
 import * as dotenv from 'dotenv';
 import "@nomicfoundation/hardhat-toolbox";
 import "hardhat-abi-exporter";
-import {ethers} from "ethers";
 
 dotenv.config();
 
 const pks = []
+pks.push(`0x${process.env.TEST_PK}`);
+
 if (process.env.DEPLOY_PK && process.env.DEPLOY_ADDRESS) {
     pks.push(`0x${process.env.DEPLOY_PK}`);
 }

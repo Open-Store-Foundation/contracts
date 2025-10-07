@@ -72,7 +72,6 @@ async function handle(cmd: string) {
                 break;
             }
 
-            // app = await createApp(devPlugins.apps, userSigner,
             app = await dev.createApp(
                 Defaults.UserContractData.AppInfo,
                 userSigner

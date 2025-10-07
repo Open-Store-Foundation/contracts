@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.21;
 
+import "./PublisherFacetStorageV1.sol";
 import {Named} from "../interfaces/Named.sol";
-import {StringVerifier} from "../libs/StringVerifier.sol";
 import {PluginManager} from "../plugin/PluginManager.sol";
 import {PublisherAccountStorageData, PublisherFacetStorageV1} from "./PublisherFacetStorageV1.sol";
+import {StringVerifier} from "../libs/StringVerifier.sol";
 
 /**
  * @title PublisherAccount

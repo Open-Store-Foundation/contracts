@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.21;
 
+import "../plugin/delegate/PluginDelegatedOwner.sol";
 import "./AppFacetStorage.sol";
 import {AppFacetStorage} from "./AppFacetStorage.sol";
 import {PluginManager} from "../plugin/PluginManager.sol";
-import {PluginOwnable} from "../plugin/PluginOwnable.sol";
 import {StringVerifier} from "../libs/StringVerifier.sol";
 import {Trustable} from "../multicall/Trustable.sol";
 
@@ -13,7 +13,7 @@ import {Trustable} from "../multicall/Trustable.sol";
  * @dev Core application asset contract that manages app metadata and plugins
  * @notice This contract handles app information, validation, and plugin management for applications in the OpenStore
  */
-contract AppAsset is PluginManager {
+contract AppAsset is PluginManager, PluginDelegatedOwner {
 
     using StringVerifier for string;
 
@@ -24,16 +24,18 @@ contract AppAsset is PluginManager {
     // Error Codes
     uint32 constant private PACKAGE_NAME_LENGTH = 1;
     uint32 constant private NAME_LENGTH = 2;
-    uint32 constant private DEVELOPER_ADDRESS_ZERO = 3;
-    uint32 constant private PLUGIN_SELECTOR_LENGTH_MISMATCH = 4;
+    uint32 constant private PLUGIN_SELECTOR_LENGTH_MISMATCH = 3;
 
     // Const
     uint256 constant private MIN_LENGTH = 3;
     uint256 constant private MAX_NAME_LENGTH = 40;
     uint256 constant private MAX_PACKAGE_LENGTH = 150;
 
-    /// @dev The developer address who created this application
-    address public immutable developer;
+    event AppAssetFullInfoUpdated();
+    event AppAssetNameUpdated(string name);
+    event AppAssetDescriptionUpdated(string content);
+    event AppAssetCategoryUpdated(uint16 categoryId);
+    event AppAssetPlatformUpdated(uint16 platformId);
 
     /**
      * @dev Modifier to verify that the app name meets length requirements
@@ -49,8 +51,7 @@ contract AppAsset is PluginManager {
 
     /**
      * @dev Initializes a new app asset with metadata and plugins
-     * @param _owner The address that will own this app contract
-     * @param _developer The developer address for this application
+     * @param _developer The developer/publisher address that will own this app (PublisherAccount address)
      * @param _id The unique identifier for this app (package name)
      * @param _name The display name of the application
      * @param _description A description of the application
@@ -62,7 +63,6 @@ contract AppAsset is PluginManager {
      * @param _selectors Array of function selectors for each plugin
      */
     constructor(
-        address _owner,
         address _developer,
 
         string memory _id,
@@ -76,20 +76,14 @@ contract AppAsset is PluginManager {
         address[] memory _plugins,
         bytes[] memory _data,
         bytes4[][] memory _selectors
-    ) PluginManager(_owner) verifyName(_name) {
+    ) PluginManager(_developer) verifyName(_name) {
         if (!StringVerifier.isValidLength(_id, MIN_LENGTH, MAX_PACKAGE_LENGTH)) {
             revert AppError(PACKAGE_NAME_LENGTH);
-        }
-
-        if (_developer == address(0)) {
-            revert AppError(DEVELOPER_ADDRESS_ZERO);
         }
 
         if (_plugins.length != _selectors.length) {
             revert AppError(PLUGIN_SELECTOR_LENGTH_MISMATCH);
         }
-
-        developer = _developer;
 
         AppGeneralInfo storage info = AppFacetStorage.general();
         // Immutable
@@ -144,6 +138,16 @@ contract AppAsset is PluginManager {
     }
 
     /**
+     * @dev Returns the category ID for this application
+     * @return The category identifier
+     */
+    function getCategory() public view returns (uint16) {
+        AppGeneralInfo memory info = AppFacetStorage.general();
+        return info.categoryId;
+    }
+
+
+    /**
      * @dev Returns the protocol ID for this application
      * @return The protocol identifier
      */
@@ -162,45 +166,53 @@ contract AppAsset is PluginManager {
         string calldata _name,
         string calldata _description,
         uint16 _categoryId
-    ) external onlyOwner verifyName(_name) {
+    ) external onlyDelegateOwner verifyName(_name) {
         AppGeneralInfo storage info = AppFacetStorage.general();
         info.name = _name;
         info.description = _description;
         info.categoryId = _categoryId;
+
+        emit AppAssetFullInfoUpdated();
     }
 
     /**
      * @dev Updates the application display name
      * @param _name The new name for the application
      */
-    function setName(string calldata _name) external onlyOwner verifyName(_name) {
+    function setName(string calldata _name) external onlyDelegateOwner verifyName(_name) {
         AppGeneralInfo storage info = AppFacetStorage.general();
         info.name = _name;
+
+        emit AppAssetNameUpdated(_name);
     }
 
     /**
      * @dev Updates the application description
      * @param _description The new description for the application
      */
-    function setDescription(string calldata _description) external onlyOwner {
+    function setDescription(string calldata _description) external onlyDelegateOwner {
         AppGeneralInfo storage info = AppFacetStorage.general();
         info.description = _description;
+
+        emit AppAssetDescriptionUpdated(_description);
     }
 
     /**
      * @dev Updates the application category
      * @param _categoryId The new category identifier
      */
-    function setCategory(uint16 _categoryId) external onlyOwner {
+    function setCategoryId(uint16 _categoryId) external onlyDelegateOwner {
         AppGeneralInfo storage info = AppFacetStorage.general();
         info.categoryId = _categoryId;
+
+        emit AppAssetCategoryUpdated(_categoryId);
     }
 
     /**
      * @dev Updates the protocol ID for this application
      * @param _protocolId The new protocol identifier
      */
-    function setProtocolId(uint16 _protocolId) external onlyOwner {
+    function setProtocolId(uint16 _protocolId) external onlyDelegateOwner {
         _setProtocolId(_protocolId);
     }
 
@@ -210,7 +222,7 @@ contract AppAsset is PluginManager {
      * @param _protocolId The new protocol identifier
      */
     function setProtocolId(address sender, uint16 _protocolId) external onlyMulticall {
-        _checkMulticall(sender);
+        _checkDelegateOwner(sender);
         _setProtocolId(_protocolId);
     }
 
@@ -221,5 +233,7 @@ contract AppAsset is PluginManager {
     function _setProtocolId(uint16 _protocolId) private {
         AppGeneralInfo storage info = AppFacetStorage.general();
         info.protocolId = _protocolId;
+
+        emit AppAssetPlatformUpdated(_protocolId);
     }
 }

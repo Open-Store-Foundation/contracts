@@ -187,7 +187,7 @@ describe("AppBuildsPluginV1", function () {
 
             await expect(
                 buildsPlugin2["addBuild((bytes,uint16,string,uint256,bytes32))"](sampleBuild)
-            ).to.be.revertedWithCustomError(buildsPlugin2, "OwnableUnauthorizedAccount")
+            ).to.be.revertedWithCustomError(buildsPlugin2, "OwnableDelegateUnauthorizedAccount")
             .withArgs(user1.address);
         });
     });
