@@ -1,6 +1,6 @@
 import {GfContracts, StoreConfig} from "./models";
 import {AppGeneralInfoStruct} from "../typechain-types/contracts/app/AppAsset";
-import {parseEther} from "ethers";
+import {parseEther, toUtf8Bytes} from "ethers";
 
 export const Defaults = {
     GreenfieldContracts: {

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.21;
 
-import {Plugin} from "../plugin/Plugin.sol";
+import {Trustable} from "../multicall/Trustable.sol";
+import {DelegatedPlugin} from "../plugin/delegate/DelegatedPlugin.sol";
+import {PluginDelegatedOwner} from "../plugin/delegate/PluginDelegatedOwner.sol";
 
 /**
  * @dev Represents a single build/version of an application
@@ -34,7 +36,7 @@ struct AppBuildsPluginV1Data {
  * @dev Plugin that manages application builds and versions
  * @notice Handles adding new builds, version tracking, and build retrieval
  */
-contract AppBuildsPluginV1 is Plugin {
+contract AppBuildsPluginV1 is DelegatedPlugin {
 
     /// @dev Custom error for app builds plugin failures
     /// @param code Error code indicating the specific failure type
@@ -65,7 +67,7 @@ contract AppBuildsPluginV1 is Plugin {
      * @dev Adds a new build to the application (owner only)
      * @param build The build information to add
      */
-    function addBuild(AppBuild calldata build) external onlyOwner {
+    function addBuild(AppBuild calldata build) external onlyDelegateOwner {
         _addBuild(build);
     }
 
@@ -78,7 +80,7 @@ contract AppBuildsPluginV1 is Plugin {
         address sender,
         AppBuild calldata build
     ) external onlyMulticall {
-        _checkOwner(sender);
+        _checkDelegateOwner(sender);
         _addBuild(build);
     }
 

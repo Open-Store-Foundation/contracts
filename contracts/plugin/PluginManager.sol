@@ -12,6 +12,11 @@ import {TrustedCalldata} from "../multicall/TrustedCalldata.sol";
  * @dev Abstract contract for managing plugin functionality and delegation
  * @notice Provides a plugin architecture where functions can be delegated to plugin contracts
  */
+/**
+ * @title PluginManager
+ * @dev Abstract base providing registration and delegation of plugin contracts
+ * @notice Routes function calls to plugins by selector and supports trusted multicall execution
+ */
 abstract contract PluginManager is PluginOwner, Trustable, ITrustedCall {
 
     mapping(bytes4 => address) public selectors;
@@ -85,8 +90,8 @@ abstract contract PluginManager is PluginOwner, Trustable, ITrustedCall {
     }
 
     /**
-     * @dev Executes a trusted call via multicall, either to a plugin or to the manager itself
-     * @param call The trusted call data containing target and execution information
+     * @dev Executes a trusted call via multicall, to either a plugin or the manager
+     * @param call The trusted call payload
      */
     function trustedCall(TrustedCalldata memory call) onlyMulticall external payable virtual override {
         if (call.plugin != address(0)) {
@@ -105,8 +110,8 @@ abstract contract PluginManager is PluginOwner, Trustable, ITrustedCall {
     }
 
     /**
-     * @dev Fallback function that delegates calls to registered plugins based on function selector
-     * @notice Automatically routes function calls to the appropriate plugin
+     * @dev Delegates unknown calls to registered plugins based on function selector
+     * @notice Automatically routes external calls to the appropriate plugin if registered
      */
     fallback() external payable {
         address plugin = selectors[msg.sig];

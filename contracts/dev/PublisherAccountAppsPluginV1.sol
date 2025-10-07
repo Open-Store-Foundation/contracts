@@ -86,12 +86,12 @@ contract PublisherAccountAppsPluginV1 is Plugin {
      * @param _protocolId The protocol identifier
      * @param _platformId The platform identifier
      * @param _categoryId The category identifier
-     * @return The computed address for the app contract
+     * @return appAddress The computed CREATE2 deployment address for the app
      */
     function computeAppAddress(
         string memory _id,
         string memory _name,
-        bytes memory _description,
+        string memory _description,
 
         uint16 _protocolId,
         uint16 _platformId,
@@ -117,7 +117,7 @@ contract PublisherAccountAppsPluginV1 is Plugin {
     function createApp(
         string memory _id,
         string memory _name,
-        bytes memory _description,
+        string memory _description,
 
         uint16 _protocolId,
         uint16 _platformId,
@@ -140,7 +140,7 @@ contract PublisherAccountAppsPluginV1 is Plugin {
         address sender,
         string memory _id,
         string memory _name,
-        bytes memory _description,
+        string memory _description,
 
         uint16 _protocolId,
         uint16 _platformId,
@@ -162,7 +162,7 @@ contract PublisherAccountAppsPluginV1 is Plugin {
     function _createApp(
         string memory _id,
         string memory _name,
-        bytes memory _description,
+        string memory _description,
 
         uint16 _protocolId,
         uint16 _platformId,
@@ -193,12 +193,12 @@ contract PublisherAccountAppsPluginV1 is Plugin {
      * @param _protocolId The protocol identifier
      * @param _platformId The platform identifier
      * @param _categoryId The category identifier
-     * @return The complete bytecode for app deployment
+     * @return bytecode The complete constructor-encoded bytecode for app deployment
      */
     function _getBytecode(
         string memory _id,
         string memory _name,
-        bytes memory _description,
+        string memory _description,
     
         uint16 _protocolId,
         uint16 _platformId,
@@ -228,7 +228,7 @@ contract PublisherAccountAppsPluginV1 is Plugin {
     /**
      * @dev Retrieves the address of an app by its ID
      * @param id The unique identifier of the app
-     * @return The address of the app contract, or zero address if not found
+     * @return app The address of the app contract, or zero address if not found
      */
     function getAppById(string calldata id) external view returns (address) {
         bytes32 idHash = keccak256(bytes(id));

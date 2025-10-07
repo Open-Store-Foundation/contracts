@@ -3,8 +3,8 @@ pragma solidity ^0.8.21;
 
 import {VersionableOwner} from "../interfaces/VersionableOwner.sol";
 import {Trustable} from "../multicall/Trustable.sol";
-import {Plugin} from "../plugin/Plugin.sol";
 import {PluginOwnable} from "../plugin/PluginOwnable.sol";
+import {DelegatedPlugin} from "../plugin/delegate/DelegatedPlugin.sol";
 
 /**
  * @dev Storage structure for the AppOwnerPluginV1
@@ -31,7 +31,7 @@ struct AppOwnerPluginV1Version {
  * @dev Plugin that manages application ownership verification through domain and cryptographic proofs
  * @notice Handles setting and retrieving app ownership information with versioning support
  */
-contract AppOwnerPluginV1 is Plugin, VersionableOwner {
+contract AppOwnerPluginV1 is DelegatedPlugin, VersionableOwner {
 
     /// @dev Custom error for app owner plugin failures
     /// @param code Error code indicating the specific failure type
@@ -66,7 +66,7 @@ contract AppOwnerPluginV1 is Plugin, VersionableOwner {
         string calldata _domain,
         bytes32[] calldata _fingerprints,
         bytes[] calldata _proofs
-    ) public onlyOwner {
+    ) public onlyDelegateOwner {
         _setAppOwner(_domain, _fingerprints, _proofs);
     }
 
@@ -83,7 +83,7 @@ contract AppOwnerPluginV1 is Plugin, VersionableOwner {
         bytes32[] calldata _fingerprints,
         bytes[] calldata _proofs
     ) external onlyMulticall {
-        _checkOwner(sender);
+        _checkDelegateOwner(sender);
         _setAppOwner(_domain, _fingerprints, _proofs);
     }
 

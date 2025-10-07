@@ -16,7 +16,7 @@ struct OwnerData {
  */
 library PluginOwnerStorage {
 
-    bytes32 internal constant OWNER_KEEPER = keccak256("openstore.plugin.storage.OwnerKeeper");
+    bytes32 internal constant OWNER_KEEPER = keccak256("openstore.plugin.storage.PluginOwnerStorage");
 
     /**
      * @dev Returns storage reference for plugin ownership data

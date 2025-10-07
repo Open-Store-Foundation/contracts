@@ -8,6 +8,11 @@ import "../../oracle/AssetlinksOracle.sol";
 import "../../plugin/PluginOwnable.sol";
 import "./OpenStoreStorageV2.sol";
 
+/**
+ * @title OpenStoreV2
+ * @dev Next-generation OpenStore contract with simplified per-request voting and rewards
+ * @notice Validators vote on individual requests within a fixed window; rewards are claimable per-validator
+ */
 contract OpenStoreV2 is PluginManager {
 
     using BitPacking for uint256;

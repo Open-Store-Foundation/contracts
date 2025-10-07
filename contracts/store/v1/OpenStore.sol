@@ -7,6 +7,7 @@ import {BytesParser} from "../../libs/BytesParser.sol";
 import {Trustable} from "../../multicall/Trustable.sol";
 import {PluginManager} from "../../plugin/PluginManager.sol";
 import {PluginOwnable} from "../../plugin/PluginOwnable.sol";
+import {PluginDelegatedOwner} from "../../plugin/delegate/PluginDelegatedOwner.sol";
 import {IOpenStoreRequestHandler} from "./IOpenStoreRequestHandler.sol";
 import {OpenStoreConfig, OpenStoreState, OpenStoreStorage, OpenStoreVault, Validator, BlockRef, RequestInfo} from "./OpenStoreStorage.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
@@ -1685,7 +1686,7 @@ contract OpenStore is PluginManager {
     }
 
     function _addBuildToTrack(address sender, address target, uint256 trackId, uint256 versionCode) internal {
-        if (sender != PluginOwnable(target).owner()) {
+        if (sender != PluginDelegatedOwner(target).delegateOwner()) {
             revert OpenStoreError(ERROR_NOT_TARGET_OWNER);
         }
 

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.21;
 
-import {Plugin} from "../plugin/Plugin.sol";
+import {Trustable} from "../multicall/Trustable.sol";
+import {PluginOwnable} from "../plugin/PluginOwnable.sol";
+import {DelegatedPlugin} from "../plugin/delegate/DelegatedPlugin.sol";
 
 /**
  * @dev Storage structure for the AppDistributionPluginV1
@@ -18,7 +20,7 @@ struct AppDistributionPluginV1Data {
  * @dev Plugin that manages application distribution sources and methods
  * @notice Handles setting and retrieving distribution information for applications
  */
-contract AppDistributionPluginV1 is Plugin {
+contract AppDistributionPluginV1 is DelegatedPlugin {
 
     bytes32 internal constant APP_DISTRIBUTION_V1 = keccak256("openstore.plugin.storage.AppDistributionPlugin.v1");
 
@@ -41,7 +43,7 @@ contract AppDistributionPluginV1 is Plugin {
      * @param _typeId The distribution type identifier
      * @param _sources Array of distribution source data
      */
-    function setDistribution(uint16 _typeId, bytes[] calldata _sources) external onlyOwner {
+    function setDistribution(uint16 _typeId, bytes[] calldata _sources) external onlyDelegateOwner {
         _setDistribution(_typeId, _sources);
     }
 
@@ -52,7 +54,7 @@ contract AppDistributionPluginV1 is Plugin {
      * @param _sources Array of distribution source data
      */
     function setDistribution(address sender, uint16 _typeId, bytes[] calldata _sources) external onlyMulticall {
-        _checkOwner(sender);
+        _checkDelegateOwner(sender);
         _setDistribution(_typeId, _sources);
     }
 

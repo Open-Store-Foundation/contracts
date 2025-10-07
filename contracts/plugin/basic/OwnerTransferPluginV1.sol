@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.10;
 
-import "../interfaces/TransferableOwner.sol";
-import "./PluginOwnable.sol";
-
+import "../../interfaces/TransferableOwner.sol";
+import "../PluginOwnable.sol";
 /**
  * @title PluginOwner
  * @dev Abstract contract extending PluginOwnable with ownership transfer capabilities

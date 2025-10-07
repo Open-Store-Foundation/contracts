@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.21;
 
-import "../plugin/PluginDelegatedOwner.sol";
+import "../plugin/delegate/PluginDelegatedOwner.sol";
 import "./AppFacetStorage.sol";
 import {AppFacetStorage} from "./AppFacetStorage.sol";
 import {PluginManager} from "../plugin/PluginManager.sol";
@@ -33,7 +33,7 @@ contract AppAsset is PluginManager, PluginDelegatedOwner {
 
     event AppAssetFullInfoUpdated();
     event AppAssetNameUpdated(string name);
-    event AppAssetDescriptionUpdated(bytes content);
+    event AppAssetDescriptionUpdated(string content);
     event AppAssetCategoryUpdated(uint16 categoryId);
     event AppAssetPlatformUpdated(uint16 platformId);
 
@@ -47,14 +47,6 @@ contract AppAsset is PluginManager, PluginDelegatedOwner {
         }
 
         _;
-    }
-
-    /**
-     * @dev Overrides ownership getter for delegated pattern
-     * @notice Resolves multiple inheritance by explicitly calling PluginDelegatedOwner's implementation
-     */
-    function owner() public view virtual override(PluginOwnable, PluginDelegatedOwner) returns (address) {
-       return PluginDelegatedOwner.owner();
     }
 
     /**
@@ -75,7 +67,7 @@ contract AppAsset is PluginManager, PluginDelegatedOwner {
 
         string memory _id,
         string memory _name,
-        bytes memory _description,
+        string memory _description,
 
         uint16 _protocolId,
         uint16 _platformId,
@@ -140,14 +132,14 @@ contract AppAsset is PluginManager, PluginDelegatedOwner {
      * @dev Returns the description of this application
      * @return The application description
      */
-    function getDescription() public view returns (bytes memory) {
+    function getDescription() public view returns (string memory) {
         AppGeneralInfo memory info = AppFacetStorage.general();
         return info.description;
     }
 
     /**
-     * @dev Returns the protocol ID for this application
-     * @return The protocol identifier
+     * @dev Returns the category ID for this application
+     * @return The category identifier
      */
     function getCategory() public view returns (uint16) {
         AppGeneralInfo memory info = AppFacetStorage.general();
@@ -172,9 +164,9 @@ contract AppAsset is PluginManager, PluginDelegatedOwner {
      */
     function updateGeneralInfo(
         string calldata _name,
-        bytes calldata _description,
+        string calldata _description,
         uint16 _categoryId
-    ) external onlyOwner verifyName(_name) {
+    ) external onlyDelegateOwner verifyName(_name) {
         AppGeneralInfo storage info = AppFacetStorage.general();
         info.name = _name;
         info.description = _description;
@@ -187,7 +179,7 @@ contract AppAsset is PluginManager, PluginDelegatedOwner {
      * @dev Updates the application display name
      * @param _name The new name for the application
      */
-    function setName(string calldata _name) external onlyOwner verifyName(_name) {
+    function setName(string calldata _name) external onlyDelegateOwner verifyName(_name) {
         AppGeneralInfo storage info = AppFacetStorage.general();
         info.name = _name;
 
@@ -198,7 +190,7 @@ contract AppAsset is PluginManager, PluginDelegatedOwner {
      * @dev Updates the application description
      * @param _description The new description for the application
      */
-    function setDescription(bytes calldata _description) external onlyOwner {
+    function setDescription(string calldata _description) external onlyDelegateOwner {
         AppGeneralInfo storage info = AppFacetStorage.general();
         info.description = _description;
 
@@ -209,7 +201,7 @@ contract AppAsset is PluginManager, PluginDelegatedOwner {
      * @dev Updates the application category
      * @param _categoryId The new category identifier
      */
-    function setCategoryId(uint16 _categoryId) external onlyOwner {
+    function setCategoryId(uint16 _categoryId) external onlyDelegateOwner {
         AppGeneralInfo storage info = AppFacetStorage.general();
         info.categoryId = _categoryId;
 
@@ -220,7 +212,7 @@ contract AppAsset is PluginManager, PluginDelegatedOwner {
      * @dev Updates the protocol ID for this application
      * @param _protocolId The new protocol identifier
      */
-    function setProtocolId(uint16 _protocolId) external onlyOwner {
+    function setProtocolId(uint16 _protocolId) external onlyDelegateOwner {
         _setProtocolId(_protocolId);
     }
 
@@ -230,7 +222,7 @@ contract AppAsset is PluginManager, PluginDelegatedOwner {
      * @param _protocolId The new protocol identifier
      */
     function setProtocolId(address sender, uint16 _protocolId) external onlyMulticall {
-        _checkMulticall(sender);
+        _checkDelegateOwner(sender);
         _setProtocolId(_protocolId);
     }
 

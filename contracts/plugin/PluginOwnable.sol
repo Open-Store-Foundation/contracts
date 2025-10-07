@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.21;
 
-import {PluginOwnerStorage} from "./PluginOwnerStorage.sol";
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
+import {PluginOwnerStorage} from "./PluginOwnerStorage.sol";
 
 /**
  * @title PluginOwnable
- * @dev Abstract contract providing ownership functionality for plugins using diamond storage
- * @notice Provides owner-only access control using diamond storage pattern
+ * @dev Abstract contract providing ownership for plugin-managed contracts using diamond storage
+ * @notice Supplies owner-only access control with storage isolated via `PluginOwnerStorage`
  */
 abstract contract PluginOwnable is Context {
 
@@ -35,7 +35,8 @@ abstract contract PluginOwnable is Context {
     }
 
     /**
-     * @dev Throws if the sender is not the owner.
+     * @dev Reverts if the provided address is not the owner
+     * @param sender The address to validate as owner
      */
     function _checkOwner(address sender) internal view virtual {
         if (owner() != sender) {
@@ -44,7 +45,7 @@ abstract contract PluginOwnable is Context {
     }
 
     /**
-     * @dev Returns the address of the current owner.
+     * @dev Returns the address of the current owner
      */
     function owner() public view virtual returns (address) {
         return PluginOwnerStorage.ownerData().owner;
@@ -54,7 +55,7 @@ abstract contract PluginOwnable is Context {
 abstract contract PluginOwner is PluginOwnable {
 
     /**
-     * @dev Initializes the contract setting the provided address as the initial owner
+     * @dev Initializes and sets the provided address as the initial owner
      * @param initialOwner The address to set as the initial owner
      */
     constructor(address initialOwner) {

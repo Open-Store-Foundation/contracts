@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.21;
 
+import "../../plugin/delegate/PluginDelegatedOwner.sol";
 import "./OpenStore.sol";
 import "./OpenStoreStorage.sol";
 import {BytesParser} from "../../libs/BytesParser.sol";
@@ -60,11 +61,12 @@ contract OpenStoreRequestHandlerV1 is IOpenStoreRequestHandler {
         if (msgValue < config.validationRequestAmount) {
             revert OpenStoreError(ERROR_INCORRECT_VALIDATION_FEE);
         }
-        if (sender != PluginOwnable(target).owner()) {
-            revert OpenStoreError(ERROR_NOT_TARGET_OWNER);
-        }
 
         if (reqType == 1) {
+            if (sender != PluginDelegatedOwner(target).delegateOwner()) {
+                revert OpenStoreError(ERROR_NOT_TARGET_OWNER);
+            }
+
             OpenStoreVault storage vault = OpenStoreStorage.openStoreVault();
             uint256 _versionCode = data.toUint256(0);
             uint256 _ownerVersion = data.toUint256(32);

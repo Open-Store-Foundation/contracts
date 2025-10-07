@@ -180,7 +180,7 @@ describe("PublisherAccountAppsPluginV1", function () {
             expect(general.protocolId).to.equal(sampleAppData.protocolId);
             expect(general.platformId).to.equal(sampleAppData.platformId);
             expect(general.categoryId).to.equal(sampleAppData.categoryId);
-            expect(await appManager.owner()).to.be.equal(user1.address);
+            expect(await appManager.delegateOwner()).to.be.equal(user1.address);
         });
 
         it("should revert when creating duplicate app", async function () {

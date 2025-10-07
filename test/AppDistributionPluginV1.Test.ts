@@ -177,7 +177,7 @@ describe("AppDistributionPluginV1", function () {
                     sampleDistribution.typeId,
                     sampleDistribution.sources
                 )
-            ).to.be.revertedWithCustomError(distributionPlugin2, "OwnableUnauthorizedAccount")
+            ).to.be.revertedWithCustomError(distributionPlugin2, "OwnableDelegateUnauthorizedAccount")
             .withArgs(user1.address);
         });
     });
