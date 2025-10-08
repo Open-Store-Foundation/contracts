@@ -37,7 +37,7 @@ contract AppOwnerPluginV1 is DelegatedPlugin, VersionableOwner {
     /// @param code Error code indicating the specific failure type
     error AppOwnerPluginError(uint32 code);
 
-    event AppOwnerChanged();
+    event AppOwnerChanged(uint256 version);
 
     uint32 constant private PROOF_EMPTY = 1;
     uint32 constant private FINGERPRINT_PROOF_MISMATCH = 2;
@@ -113,7 +113,7 @@ contract AppOwnerPluginV1 is DelegatedPlugin, VersionableOwner {
             proofs: _proofs
         }));
 
-        emit AppOwnerChanged();
+        emit AppOwnerChanged(data.versions.length);
     }
 
     /**
