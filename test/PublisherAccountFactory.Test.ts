@@ -136,28 +136,7 @@ describe("PublisherAccountFactory", function () {
         });
     });
 
-    describe("getAddressById", function () {
-        it("should return correct address for existing dev account", async function () {
-            const accountName = "GetterTestDev";
-
-            const devManager = await core.devManager(accountName, user1);
-            const expectedAddress = await devManager["PublisherAccount"].getAddress();
-
-            const nameHash = id(accountName);
-            const factory = core.contracts.factory;
-            const retrievedAddress = await factory.getAddressById(user1.address, nameHash);
-
-            expect(retrievedAddress).to.equal(expectedAddress);
-        });
-
-        it("should return zero address for non-existent dev account", async function () {
-            const nameHash = id("NonExistentDev");
-            const factory = core.contracts.factory;
-            const retrievedAddress = await factory.getAddressById(user1.address, nameHash);
-
-            expect(retrievedAddress).to.equal(ethers.ZeroAddress);
-        });
-
+    describe("computeAccountAddress", function () {
         it("should return different addresses for different users", async function () {
             const accountName = "SameNameDifferentUser";
 
@@ -169,25 +148,6 @@ describe("PublisherAccountFactory", function () {
             expect(address1).to.not.equal(address2);
             expect(address1).to.not.equal(ethers.ZeroAddress);
             expect(address2).to.not.equal(ethers.ZeroAddress);
-        });
-
-        it("should return zero address when querying with wrong owner", async function () {
-            const accountName = "WrongOwnerTest";
-            await core.devManager(accountName, user1);
-
-            const nameHash = id(accountName);
-            const factory = core.contracts.factory;
-            const retrievedAddress = await factory.getAddressById(user2.address, nameHash);
-
-            expect(retrievedAddress).to.equal(ethers.ZeroAddress);
-        });
-
-        it("should handle empty string name hash", async function () {
-            const emptyNameHash = id("");
-            const factory = core.contracts.factory;
-            const retrievedAddress = await factory.getAddressById(user1.address, emptyNameHash);
-
-            expect(retrievedAddress).to.equal(ethers.ZeroAddress);
         });
     });
 
@@ -229,16 +189,9 @@ describe("PublisherAccountFactory", function () {
     describe("edge cases and gas optimization", function () {
         it("should handle creating many accounts efficiently", async function () {
             const accountCount = 10;
-            const factory = core.contracts.factory;
 
             for (let i = 0; i < accountCount; i++) {
                 await core.devManager(`Account${i}`, user1);
-            }
-
-            for (let i = 0; i < accountCount; i++) {
-                const nameHash = id(`Account${i}`);
-                const address = await factory.getAddressById(user1.address, nameHash);
-                expect(address).to.not.equal(ethers.ZeroAddress);
             }
         });
 

@@ -33,19 +33,18 @@ contract PublisherAccountFactory is Trustable, ITrustedCall {
 
     // Storage
     address private immutable contracts;
-    mapping(address => mapping(bytes32 => address)) private accounts;
 
     /**
-     * @dev Initializes the factory with contract storage address
-     * @param _contracts Address of the contract storage for default plugin configurations
+     * @notice Initialize factory with contract storage address
+     * @param _contracts Contract storage used to read default plugin configuration
      */
     constructor(address _contracts) {
         contracts = _contracts;
     }
 
     /**
-     * @dev Executes a trusted call via multicall
-     * @param call The trusted call data to execute
+     * @notice Execute a trusted call via multicall
+     * @param call Trusted call payload
      */
     function trustedCall(TrustedCalldata memory call) onlyMulticall external payable virtual override {
         Address.functionDelegateCall(
@@ -54,25 +53,42 @@ contract PublisherAccountFactory is Trustable, ITrustedCall {
         );
     }
 
-    /**
-     * @dev Retrieves the address of a publisher account by owner and publisher ID
-     * @param owner The owner address
-     * @param publisherId The publisher identifier hash
-     * @return The address of the publisher account, or zero address if not found
-     */
-    function getAddressById(address owner, bytes32 publisherId) external view returns (address) {
-        return accounts[owner][publisherId];
-    }
+    
 
     /**
-     * @dev Computes the deterministic address where a publisher account will be deployed
-     * @param owner The owner address for the account
-     * @param name The name of the publisher account
-     * @return The computed address for the publisher account
+     * @notice Compute deterministic address of a publisher account deployment
+     * @param owner Account owner
+     * @param name Publisher account name
+     * @return predicted Predicted deployment address
      */
     function computeAccountAddress(address owner, string calldata name) external view returns (address) {
         bytes32 nameHash = keccak256(bytes(name));
-        bytes memory bytecode = _getBytecode(owner, name);
+        (address[] memory addr, bytes[] memory data, bytes4[][] memory selectors) = _getDefaultPlugins();
+        bytes memory bytecode = _getBytecode(owner, name, addr, data, selectors);
+        return Create2.computeAddress(nameHash, keccak256(bytecode));
+    }
+
+    /**
+     * @notice Compute deterministic address of a publisher account with custom plugins
+     * @param owner Account owner
+     * @param name Publisher account name
+     * @param addr Plugin implementation addresses
+     * @param data Plugin initialization calldata
+     * @param selectors Plugin function selectors per facet
+     * @return predicted Predicted deployment address
+     */
+    function computeAccountAddress(
+        address owner,
+        string calldata name,
+        address[] calldata addr,
+        bytes[] calldata data,
+        bytes4[][] calldata selectors
+    ) external view returns (address) {
+        bytes32 nameHash = keccak256(bytes(name));
+        address[] memory addrM = abi.decode(abi.encode(addr), (address[]));
+        bytes[] memory dataM = abi.decode(abi.encode(data), (bytes[]));
+        bytes4[][] memory selectorsM = abi.decode(abi.encode(selectors), (bytes4[][]));
+        bytes memory bytecode = _getBytecode(owner, name, addrM, dataM, selectorsM);
         return Create2.computeAddress(nameHash, keccak256(bytecode));
     }
 
@@ -81,7 +97,8 @@ contract PublisherAccountFactory is Trustable, ITrustedCall {
      * @param name The name of the publisher account
      */
     function createAccount(string calldata name) external {
-        _createAccount(msg.sender, name);
+        (address[] memory addr, bytes[] memory data, bytes4[][] memory selectors) = _getDefaultPlugins();
+        _createAccount(msg.sender, name, addr, data, selectors);
     }
 
     /**
@@ -90,39 +107,68 @@ contract PublisherAccountFactory is Trustable, ITrustedCall {
      * @param name The name of the publisher account
      */
     function createAccount(address owner, string calldata name) external onlyMulticall {
-        _createAccount(owner, name);
+        (address[] memory addr, bytes[] memory data, bytes4[][] memory selectors) = _getDefaultPlugins();
+        _createAccount(owner, name, addr, data, selectors);
     }
 
     /**
-     * @dev Internal function to create a publisher account with validation
-     * @param owner The owner address for the account
-     * @param name The name of the publisher account
+     * @notice Create a new publisher account using custom plugin configuration
+     * @param name Publisher account name
+     * @param addr Plugin implementation addresses
+     * @param data Plugin initialization calldata
+     * @param selectors Plugin function selectors per facet
      */
-    function _createAccount(address owner, string calldata name) private {
+    function createAccount(
+        string calldata name,
+        address[] calldata addr,
+        bytes[] calldata data,
+        bytes4[][] calldata selectors
+    ) external {
+        _createAccount(msg.sender, name, addr, data, selectors);
+    }
+
+    /**
+     * @notice Create a new publisher account using custom plugins via multicall
+     * @param owner Account owner
+     * @param name Publisher account name
+     * @param addr Plugin implementation addresses
+     * @param data Plugin initialization calldata
+     * @param selectors Plugin function selectors per facet
+     */
+    function createAccount(
+        address owner,
+        string calldata name,
+        address[] calldata addr,
+        bytes[] calldata data,
+        bytes4[][] calldata selectors
+    ) external onlyMulticall {
+        _createAccount(owner, name, addr, data, selectors);
+    }
+
+    function _createAccount(
+        address owner,
+        string calldata name,
+        address[] memory addr,
+        bytes[] memory data,
+        bytes4[][] memory selectors
+    ) private {
         bytes32 nameHash = keccak256(bytes(name));
-        if (accounts[owner][nameHash] != address(0)) {
+        bytes memory bytecode = _getBytecode(owner, name, addr, data, selectors);
+        address predicted = Create2.computeAddress(nameHash, keccak256(bytecode));
+        if (Address.isContract(predicted)) {
             revert DevFactoryError(DEV_ALREADY_EXISTS);
         }
-
-        bytes memory bytecode = _getBytecode(owner, name);
         address accountAddr = Create2.deploy(0, nameHash, bytecode);
-        
-        accounts[owner][nameHash] = accountAddr;
-
         emit PublisherAccountCreated(owner, accountAddr, name);
     }
 
-    /**
-     * @dev Generates the bytecode for deploying a publisher account
-     * @param owner The owner address for the account
-     * @param name The name of the publisher account
-     * @return The complete bytecode for publisher account deployment
-     */
-    function _getBytecode(address owner, string memory name) private view returns (bytes memory) {
-        (address[] memory addr, bytes[] memory data, bytes4[][] memory selectors) =
-            IContractStorage(contracts)
-                    .getDefaultPluginsById(DEV_ACCOUNT_PLUGINS);
-        
+    function _getBytecode(
+        address owner,
+        string memory name,
+        address[] memory addr,
+        bytes[] memory data,
+        bytes4[][] memory selectors
+    ) private view returns (bytes memory) {
         bytes memory constructorArgs = abi.encode(
             owner,
             name,
@@ -130,7 +176,22 @@ contract PublisherAccountFactory is Trustable, ITrustedCall {
             data,
             selectors
         );
-        
+
         return abi.encodePacked(type(PublisherAccount).creationCode, constructorArgs);
+    }
+
+    /**
+     * @dev Fetches default plugin configuration from contract storage
+     */
+    function _getDefaultPlugins()
+        private
+        view
+        returns (
+            address[] memory addr,
+            bytes[] memory data,
+            bytes4[][] memory selectors
+        )
+    {
+        (addr, data, selectors) = IContractStorage(contracts).getDefaultPluginsById(DEV_ACCOUNT_PLUGINS);
     }
 }

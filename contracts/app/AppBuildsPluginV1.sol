@@ -88,7 +88,7 @@ contract AppBuildsPluginV1 is DelegatedPlugin {
      * @dev Internal function to add a build with validation
      * @param build The build information to add
      */
-    function _addBuild(AppBuild calldata build) internal {
+    function _addBuild(AppBuild calldata build) private {
         if (build.versionCode <= 0) {
             revert AppBuildsPluginError(VERSION_CODE_NEGATIVE);
         }
