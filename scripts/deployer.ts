@@ -19,6 +19,7 @@ import {BaseContract, id} from "ethers";
 import {GfContracts, StoreConfig} from "./models";
 import {CoreManager} from "./manager";
 import {verbose} from "../test/utils/logger";
+import {Defaults} from "./defaults";
 
 export interface CoreContracts {
     multicall: TrustedMulticall
@@ -162,7 +163,7 @@ export class ContractsDeployer {
         // Set up App plugins
         verbose("Setting up App plugins")
         await this.storage.setDefaultPluginsForId(
-            id("openstore.plugins.default.AppAsset.v1"),
+            id(Defaults.Ids.APP_PLUGINS),
             [
                 plugins.app.owner.address,
                 plugins.app.builds.address,
@@ -179,7 +180,7 @@ export class ContractsDeployer {
         // Set up PublisherAccount plugins
         verbose("Setting up PublisherAccount plugins")
         await this.storage.setDefaultPluginsForId(
-            id("openstore.plugins.default.PublisherAccount.v1"),
+            id(Defaults.Ids.PUBLISHER_PLUGINS),
             [
                 plugins.dev.apps.address,
                 plugins.dev.gf.address
@@ -326,10 +327,12 @@ export class ContractsDeployer {
         this.printPlugin("DevApps", devPluginAddress, devPluginSelector)
         this.printPlugin("Greenfield", devPluginGfAddress, devPluginGfSelectors)
 
+        // TODO implement functionality to enable Transfer functions: approveAppTransfer
         const _appsSelectors = [
             "createApp",
             "getAppById",
             "computeAppAddress",
+            "acceptAppTransfer",
         ];
         const _gfSelectors = [
             "topUp",

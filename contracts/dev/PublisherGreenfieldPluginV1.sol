@@ -120,7 +120,7 @@ contract PublisherGreenfieldPluginV1 is Plugin {
         bytes calldata primarySpSignature,
         uint32 chargedReadQuota,
         bytes calldata extraData
-    ) private  {
+    ) private {
         address current = address(this);
 
         BucketStorage.CreateBucketSynPackage memory createPackage = BucketStorage.CreateBucketSynPackage({

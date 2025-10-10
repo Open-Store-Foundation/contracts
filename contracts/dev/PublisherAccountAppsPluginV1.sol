@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.21;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "../interfaces/TransferableOwner.sol";
 import {AppAsset} from "../app/AppAsset.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
@@ -14,8 +15,7 @@ import {PublisherFacetStorageV1} from "./PublisherFacetStorageV1.sol";
  * @param pendingTransfers Mapping from app ID hash to approved new owner address
  */
 struct PublisherAccountAppsPluginV1State {
-    mapping(bytes32 => address) apps;
-    mapping(bytes32 => address) pendingTransfers;
+    mapping(address => address) pendingTransfers; // app -> newPublisher
 }
 
 /**
@@ -33,10 +33,11 @@ contract PublisherAccountAppsPluginV1 is Plugin {
     uint32 private constant APP_ALREADY_EXISTS = 1;
     uint32 private constant APP_NOT_FOUND = 2;
     uint32 private constant TRANSFER_NOT_APPROVED = 3;
+    uint32 private constant INVALID_APP_OWNER = 4;
 
     // Plugins
     bytes32 public constant APP_PLUGINS = keccak256("openstore.plugins.default.AppAsset.v1");
-    bytes32 private constant DEV_ACCOUNT_APPS_V1 = keccak256("openstore.plugin.storage.PublisherAccountAppsPlugin.v1");
+    bytes32 private constant PUBLISHER_ACCOUNT_APPS_V1 = keccak256("openstore.plugin.storage.PublisherAccountAppsPlugin.v1");
 
     /// @dev Emitted when a new app is created
     /// @param appAddress The address of the created app contract
@@ -47,12 +48,12 @@ contract PublisherAccountAppsPluginV1 is Plugin {
     /// @dev Emitted when an app transfer is approved
     /// @param appAddress The address of the app being transferred
     /// @param newOwner The address approved to receive the app
-    event AppTransferApproved(address indexed appAddress, address indexed newOwner);
+    event AppTransferApproved(address indexed appAddress, address indexed oldOwner, address indexed newOwner);
 
     /// @dev Emitted when an app transfer is completed
     /// @param appAddress The address of the transferred app
     /// @param newOwner The address that received the app ownership
-    event AppTransferred(address indexed appAddress, address indexed newOwner);
+    event AppTransferred(address indexed appAddress, address indexed oldOwner, address indexed newOwner);
 
     address private immutable pluginStorage;
 
@@ -69,7 +70,7 @@ contract PublisherAccountAppsPluginV1 is Plugin {
      * @return ds Storage reference to the plugin data
      */
     function state() private pure returns (PublisherAccountAppsPluginV1State storage ds) {
-        bytes32 storagePosition = DEV_ACCOUNT_APPS_V1;
+        bytes32 storagePosition = PUBLISHER_ACCOUNT_APPS_V1;
 
         assembly {
             ds.slot := storagePosition
@@ -170,10 +171,6 @@ contract PublisherAccountAppsPluginV1 is Plugin {
     ) private {
         bytes32 idHash = keccak256(bytes(_id));
         PublisherAccountAppsPluginV1State storage state = state();
-        
-        if (state.apps[idHash] != address(0)) {
-            revert PublisherAccountAppsPluginError(APP_ALREADY_EXISTS);
-        }
 
         bytes memory bytecode = _getBytecode(
             _id, _name, _description,
@@ -181,7 +178,6 @@ contract PublisherAccountAppsPluginV1 is Plugin {
         );
         address appAddress = Create2.deploy(0, idHash, bytecode);
 
-        state.apps[idHash] = appAddress;
         emit AppCreated(appAddress, _id, _name);
     }
 
@@ -226,125 +222,103 @@ contract PublisherAccountAppsPluginV1 is Plugin {
     }
 
     /**
-     * @dev Retrieves the address of an app by its ID
-     * @param id The unique identifier of the app
-     * @return app The address of the app contract, or zero address if not found
-     */
-    function getAppById(string calldata id) external view returns (address) {
-        bytes32 idHash = keccak256(bytes(id));
-        PublisherAccountAppsPluginV1State storage state = state();
-        return state.apps[idHash];
-    }
-
-    /**
      * @dev Approves a transfer of app ownership to a new owner (owner only)
      * @notice Only one pending transfer can exist per app at a time. Approving a new transfer overwrites any previous approval.
-     * @param id The unique identifier of the app
+     * @param app The unique identifier of the app
      * @param newOwner The address that will be approved to accept the transfer
      * @custom:throws APP_NOT_FOUND if the app doesn't belong to this publisher account
      */
-    function approveAppTransfer(string calldata id, address newOwner) external onlyOwner {
-        _approveAppTransfer(id, newOwner);
+    function approveAppTransfer(address app, address newOwner) external onlyOwner {
+        _approveAppTransfer(app, newOwner);
     }
 
     /**
      * @dev Approves a transfer of app ownership to a new owner via multicall
      * @param sender The address initiating the multicall
-     * @param id The unique identifier of the app
+     * @param app The unique identifier of the app
      * @param newOwner The address that will be approved to accept the transfer
      * @custom:throws APP_NOT_FOUND if the app doesn't belong to this publisher account
      */
-    function approveAppTransfer(address sender, string calldata id, address newOwner) external onlyMulticall {
+    function approveAppTransfer(address sender, address app, address newOwner) external onlyMulticall {
         _checkOwner(sender);
-        _approveAppTransfer(id, newOwner);
+        _approveAppTransfer(app, newOwner);
     }
 
     /**
      * @dev Internal function to approve app transfer
-     * @param id The unique identifier of the app
+     * @param app The unique identifier of the app
      * @param newOwner The address that will be approved to accept the transfer
      */
-    function _approveAppTransfer(string calldata id, address newOwner) private {
-        bytes32 idHash = keccak256(bytes(id));
+    function _approveAppTransfer(address app, address newOwner) private {
         PublisherAccountAppsPluginV1State storage s = state();
-        address app = s.apps[idHash];
 
         if (app == address(0)) {
             revert PublisherAccountAppsPluginError(APP_NOT_FOUND);
         }
 
-        s.pendingTransfers[idHash] = newOwner;
+        address owner = address(this);
+        if (Ownable(app).owner() == owner) {
+            revert PublisherAccountAppsPluginError(INVALID_APP_OWNER);
+        }
 
-        emit AppTransferApproved(app, newOwner);
+        s.pendingTransfers[app] = newOwner;
+
+        emit AppTransferApproved(app, owner, newOwner);
     }
 
     /**
      * @dev Transfers an app record from another publisher to this publisher.
      * @notice Calls commitAppTransfer on the old publisher and records the app under this publisher.
      * @param publisher The address of the old publisher account
-     * @param id The unique identifier of the app to transfer
+     * @param app The unique identifier of the app to transfer
      * @custom:throws APP_ALREADY_EXISTS if an app with the given ID already exists here
      */
-    function transferAppFrom(address publisher, string calldata id) external onlyOwner {
-        _transferAppFrom(publisher, id);
+    function acceptAppTransfer(address publisher, address app) external onlyOwner {
+        _acceptAppTransfer(publisher, app);
     }
 
     /**
      * @dev Transfers an app record from another publisher to this publisher via multicall.
      * @param sender The address initiating the multicall
      * @param publisher The address of the old publisher account
-     * @param id The unique identifier of the app to transfer
+     * @param app The unique identifier of the app to transfer
      * @custom:throws APP_ALREADY_EXISTS if an app with the given ID already exists here
      */
-    function transferAppFrom(address sender, address publisher, string calldata id) external onlyMulticall {
+    function acceptAppTransfer(address sender, address publisher, address app) external onlyMulticall {
         _checkOwner(sender);
-        _transferAppFrom(publisher, id);
+        _acceptAppTransfer(publisher, app);
     }
 
     /**
      * @dev Internal function to transfer an app record from another publisher.
      * @param publisher The address of the old publisher account
-     * @param id The unique identifier of the app to transfer
+     * @param app The unique identifier of the app to transfer
      */
-    function _transferAppFrom(address publisher, string calldata id) private {
-        bytes32 idHash = keccak256(bytes(id));
-
-        address app = PublisherAccountAppsPluginV1(publisher)
-            .commitAppTransfer(idHash);
-
-        PublisherAccountAppsPluginV1State storage s = state();
-
-        if (s.apps[idHash] != address(0)) {
-            revert PublisherAccountAppsPluginError(APP_ALREADY_EXISTS);
-        }
-
-        s.apps[idHash] = app;
+    function _acceptAppTransfer(address publisher, address app) private {
+        PublisherAccountAppsPluginV1(publisher)
+            ._commitAppTransfer(address(this), app);
     }
 
     /**
      * @dev Called by the new publisher to take an app from this publisher.
      * @notice Only the approved recipient can call this to complete the transfer.
-     * @param idHash The keccak256 hash of the app's string ID
-     * @return app The address of the app being transferred
+     * @param newPublisher The address of the new publisher account
+     * @param app The unique identifier of the app to transfer
      * @custom:throws TRANSFER_NOT_APPROVED if caller is not the approved recipient
      */
-    function commitAppTransfer(bytes32 idHash) public returns (address) {
+    function _commitAppTransfer(address newPublisher, address app) public {
         PublisherAccountAppsPluginV1State storage s = state();
-        address approvedOwner = s.pendingTransfers[idHash];
+        address approvedOwner = s.pendingTransfers[app];
 
-        if (approvedOwner != msg.sender) {
+        if (approvedOwner != newPublisher) {
             revert PublisherAccountAppsPluginError(TRANSFER_NOT_APPROVED);
         }
 
-        address app = s.apps[idHash];
+        delete s.pendingTransfers[app];
 
-        delete s.apps[idHash];
-        delete s.pendingTransfers[idHash];
         TransferableOwner(app)
-            .transferOwnership(msg.sender);
+            .transferOwnership(newPublisher);
 
-        emit AppTransferred(app, msg.sender);
-
-        return app;
+        emit AppTransferred(app, address(this), newPublisher);
     }
 }

@@ -3,6 +3,11 @@ import {AppGeneralInfoStruct} from "../typechain-types/contracts/app/AppAsset";
 import {parseEther} from "ethers";
 
 export const Defaults = {
+    Ids: {
+        APP_PLUGINS: "openstore.plugins.default.AppAsset.v1",
+        PUBLISHER_PLUGINS: "openstore.plugins.default.PublisherAccount.v1",
+    },
+
     GreenfieldContracts: {
         BscTest: {
             executor: "0x3E3180883308e8B4946C9a485F8d91F8b15dC48e",

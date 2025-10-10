@@ -29,7 +29,7 @@ contract PublisherAccountFactory is Trustable, ITrustedCall {
     event PublisherAccountCreated(address indexed owner, address account, string name);
 
     // Const
-    bytes32 public constant DEV_ACCOUNT_PLUGINS = keccak256("openstore.plugins.default.PublisherAccount.v1");
+    bytes32 public constant PUBLISHER_ACCOUNT_PLUGINS = keccak256("openstore.plugins.default.PublisherAccount.v1");
 
     // Storage
     address private immutable contracts;
@@ -155,9 +155,11 @@ contract PublisherAccountFactory is Trustable, ITrustedCall {
         bytes32 nameHash = keccak256(bytes(name));
         bytes memory bytecode = _getBytecode(owner, name, addr, data, selectors);
         address predicted = Create2.computeAddress(nameHash, keccak256(bytecode));
-        if (Address.isContract(predicted)) {
+
+        if (predicted.code.length > 0) {
             revert DevFactoryError(DEV_ALREADY_EXISTS);
         }
+
         address accountAddr = Create2.deploy(0, nameHash, bytecode);
         emit PublisherAccountCreated(owner, accountAddr, name);
     }
@@ -192,6 +194,6 @@ contract PublisherAccountFactory is Trustable, ITrustedCall {
             bytes4[][] memory selectors
         )
     {
-        (addr, data, selectors) = IContractStorage(contracts).getDefaultPluginsById(DEV_ACCOUNT_PLUGINS);
+        (addr, data, selectors) = IContractStorage(contracts).getDefaultPluginsById(PUBLISHER_ACCOUNT_PLUGINS);
     }
 }
