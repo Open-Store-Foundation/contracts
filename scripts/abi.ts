@@ -5,15 +5,17 @@ import { join } from "node:path";
 async function main() {
     const contracts = [
         "AppAsset",
+        "AppOwnerPluginV0",
         "AppOwnerPluginV1",
+        "AppBuildsPluginV1",
         "PublisherAccountFactory",
         "PublisherAccount",
         "PublisherAccountAppsPluginV1",
         "AppDistributionPluginV1",
         "PublisherGreenfieldPluginV1",
         "AssetlinksOracle",
-        "AppBuildsPluginV1",
         "OpenStore",
+        "OpenStoreV0",
         "TrustedMulticall",
     ]
 

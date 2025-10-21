@@ -13,21 +13,16 @@
     "size": "yarn hardhat size-contracts",
     "abi": "yarn hardhat run scripts/abi.ts --network localhost",
     "license:spdx": "ts-node scripts/spdx.ts",
-
     "test:main": "yarn hardhat test",
     "test:lh": "yarn hardhat test --network localhost",
-
     "verify:lh": "yarn hardhat verify --network localhost",
     "verify:bsc": "yarn hardhat verify --network bsc",
     "verify:bsctest": "yarn hardhat verify --network bsctest",
-
     "deploy:lh": "yarn hardhat run scripts/deploy.ts --network localhost",
     "deploy:bsctest": "yarn hardhat run scripts/deploy.ts --network bsctest",
     "deploy:bsc": "yarn hardhat run scripts/deploy.ts --network bsc",
-
     "cli:lh": "yarn hardhat run scripts/cli.ts --network localhost",
     "cli:bsctest": "yarn hardhat run scripts/cli.ts --network bsctest",
-
     "dev:lh": "yarn hardhat run scripts/dev.ts --network localhost",
     "dev:bsctest": "yarn hardhat run scripts/dev.ts --network bsctest"
   },
@@ -64,7 +59,7 @@
     "@bnb-chain/greenfield-cosmos-types": "^0.4.0",
     "@bnb-chain/greenfield-js-sdk": "^2.2.2",
     "@bnb-chain/reed-solomon": "^1.1.4",
-    "@openzeppelin/contracts": "^5.3.0",
+    "@openzeppelin/contracts": "^5.4.0",
     "alchemy-sdk": "^3.6.0",
     "cross-fetch": "^4.1.0",
     "node-fetch": "^3.3.2"

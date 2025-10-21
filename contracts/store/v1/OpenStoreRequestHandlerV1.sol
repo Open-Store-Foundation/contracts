@@ -2,12 +2,12 @@
 pragma solidity ^0.8.21;
 
 import "../../plugin/delegate/PluginDelegatedOwner.sol";
-import "./OpenStore.sol";
-import "./OpenStoreStorage.sol";
+import "./OpenStoreV1.sol";
+import "./OpenStoreStorageV1.sol";
 import {BytesParser} from "../../libs/BytesParser.sol";
 import {IAssetlinksOracle} from "../../oracle/AssetlinksOracle.sol";
-import {IOpenStoreRequestHandler} from "./IOpenStoreRequestHandler.sol";
-import {OpenStoreStorage} from "./OpenStoreStorage.sol";
+import {IOpenStoreRequestHandler} from "../IOpenStoreRequestHandler.sol";
+import {OpenStoreStorageV1} from "./OpenStoreStorageV1.sol";
 import {PluginOwnable} from "../../plugin/PluginOwnable.sol";
 
 /**
@@ -53,7 +53,7 @@ contract OpenStoreRequestHandlerV1 is IOpenStoreRequestHandler {
         address target,
         bytes calldata data
     ) external payable returns (uint256) {
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
+        OpenStoreConfigV1 storage config = OpenStoreStorageV1.openStoreConfig();
         if (config.isRequestsSuspended) {
             revert OpenStoreError(ERROR_REQUESTS_SUSPENDED);
         }
@@ -67,7 +67,7 @@ contract OpenStoreRequestHandlerV1 is IOpenStoreRequestHandler {
                 revert OpenStoreError(ERROR_NOT_TARGET_OWNER);
             }
 
-            OpenStoreVault storage vault = OpenStoreStorage.openStoreVault();
+            OpenStoreVaultV1 storage vault = OpenStoreStorageV1.openStoreVault();
             uint256 _versionCode = data.toUint256(0);
             uint256 _ownerVersion = data.toUint256(32);
             uint256 _trackId = data.toUint256(64);
@@ -95,14 +95,14 @@ contract OpenStoreRequestHandlerV1 is IOpenStoreRequestHandler {
             revert OpenStoreError(ERROR_UNKNOWN_REQUEST_TYPE);
         }
 
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         uint256 nextRequestId = state.nextRequestId;
         uint256 nextFinalRequestId = state.nextFinalRequestId;
         if (nextRequestId == nextFinalRequestId) {
             state.nextProposalTimestampFrom = block.timestamp;
         }
 
-        state.requests[nextRequestId] = RequestInfo({
+        state.requests[nextRequestId] = RequestInfoV1({
             reqType: reqType,
             target: target,
             data: data
@@ -125,8 +125,8 @@ contract OpenStoreRequestHandlerV1 is IOpenStoreRequestHandler {
         uint256 count,
         uint256 fromRequestId
     ) external payable {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
-        OpenStoreVault storage vault = OpenStoreStorage.openStoreVault();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
+        OpenStoreVaultV1 storage vault = OpenStoreStorageV1.openStoreVault();
 
         for (uint256 i = 0; i < count; i++) {
             uint256 status = (result >> (i * 2)) & 3; // 3 - 0b11
@@ -135,7 +135,7 @@ contract OpenStoreRequestHandlerV1 is IOpenStoreRequestHandler {
             }
 
             uint256 requestId = fromRequestId + i;
-            RequestInfo memory req = state.requests[requestId];
+            RequestInfoV1 memory req = state.requests[requestId];
 
             if (req.reqType == 1) {
                 uint256 _versionCode = req.data.toUint256(0);

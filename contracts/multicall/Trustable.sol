@@ -10,7 +10,7 @@ import {Context} from "@openzeppelin/contracts/utils/Context.sol";
  */
 abstract contract Trustable is Context {
 
-    address private constant MULTICALL = 0x3f7AdDD276bC5c1a2Fffb329DD718f1fa0625D84;
+    address private constant MULTICALL = 0x8d90514875B0920FCEb79464045aB56A8aAa3f6B;
 
     /// @dev Custom error thrown when an unauthorized account attempts to call a multicall-only function
     /// @param account The unauthorized account address

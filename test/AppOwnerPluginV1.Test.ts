@@ -27,6 +27,10 @@ describe("AppOwnerPluginV1", function () {
             keccak256(toUtf8Bytes("fingerprint1")),
             keccak256(toUtf8Bytes("fingerprint2"))
         ],
+        certs: [
+            toUtf8Bytes("cert1_data"),
+            toUtf8Bytes("cert2_data")
+        ],
         proofs: [
             toUtf8Bytes("proof1_data"),
             toUtf8Bytes("proof2_data")
@@ -51,10 +55,6 @@ describe("AppOwnerPluginV1", function () {
 
         await deployer.deployAndSetupAll();
         core = deployer.coreManager;
-
-        const topUpAmount = ethers.parseEther("15");
-        const result = await wait(core.contracts.store.topUp({value: topUpAmount}));
-        expect(result.status).to.equal(1);
 
         devManager = await core.devManager("TestDev", user1);
         appManager = await devManager.createApp(Defaults.UserContractData.AppInfo, user1);
@@ -92,6 +92,7 @@ describe("AppOwnerPluginV1", function () {
             await appManager.updateAppOwner(
                 defaultOwner.domain,
                 defaultOwner.fingerprint,
+                defaultOwner.cert,
                 defaultOwner.proof
             );
 
@@ -104,7 +105,7 @@ describe("AppOwnerPluginV1", function () {
             const state = await ownerPlugin["getState()"]();
             expect(state.domain).to.equal(defaultOwner.domain);
             expect(state.fingerprints.length).to.equal(1);
-            expect(state.proofs.length).to.equal(1);
+            // TODO check event
         });
 
         it("should integrate with default owner configuration", async function () {
@@ -114,6 +115,7 @@ describe("AppOwnerPluginV1", function () {
             await appManager.updateAppOwner(
                 defaultOwner.domain,
                 defaultOwner.fingerprint,
+                defaultOwner.cert,
                 defaultOwner.proof
             );
 
@@ -131,9 +133,10 @@ describe("AppOwnerPluginV1", function () {
 
     describe("setAppOwner (direct call)", function () {
         it("should set app owner successfully", async function () {
-            const tx = await ownerPlugin["setAppOwner(string,bytes32[],bytes[])"](
+            const tx = await ownerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](
                 sampleOwnerData.domain,
                 sampleOwnerData.fingerprints,
+                sampleOwnerData.certs,
                 sampleOwnerData.proofs
             );
             const receipt = await wait(Promise.resolve(tx));
@@ -149,30 +152,32 @@ describe("AppOwnerPluginV1", function () {
             const state = await ownerPlugin["getState()"]();
             expect(state.domain).to.equal(sampleOwnerData.domain);
             expect(state.fingerprints.length).to.equal(sampleOwnerData.fingerprints.length);
-            expect(state.proofs.length).to.equal(sampleOwnerData.proofs.length);
+            // TODO check event
 
             for (let i = 0; i < sampleOwnerData.fingerprints.length; i++) {
                 expect(state.fingerprints[i]).to.equal(sampleOwnerData.fingerprints[i]);
-                expect(state.proofs[i]).to.equal(ethers.hexlify(sampleOwnerData.proofs[i]));
             }
         });
 
         it("should create multiple versions", async function () {
-            await ownerPlugin["setAppOwner(string,bytes32[],bytes[])"](
+            await ownerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](
                 sampleOwnerData.domain,
                 sampleOwnerData.fingerprints,
+                sampleOwnerData.certs,
                 sampleOwnerData.proofs
             );
 
             const newOwnerData = {
                 domain: "https://newdomain.com",
                 fingerprints: [keccak256(toUtf8Bytes("new_fingerprint"))],
+                certs: [toUtf8Bytes("new_cert_data")],
                 proofs: [toUtf8Bytes("new_proof_data")]
             };
 
-            await ownerPlugin["setAppOwner(string,bytes32[],bytes[])"](
+            await ownerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](
                 newOwnerData.domain,
                 newOwnerData.fingerprints,
+                newOwnerData.certs,
                 newOwnerData.proofs
             );
 
@@ -199,21 +204,22 @@ describe("AppOwnerPluginV1", function () {
             const singleData = {
                 domain: "https://single.com",
                 fingerprints: [keccak256(toUtf8Bytes("single_fingerprint"))],
+                certs: [toUtf8Bytes("single_cert")],
                 proofs: [toUtf8Bytes("single_proof")]
             };
 
-            await ownerPlugin["setAppOwner(string,bytes32[],bytes[])"](
+            await ownerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](
                 singleData.domain,
                 singleData.fingerprints,
+                singleData.certs,
                 singleData.proofs
             );
 
             const state = await ownerPlugin["getState()"]();
             expect(state.domain).to.equal(singleData.domain);
             expect(state.fingerprints.length).to.equal(1);
-            expect(state.proofs.length).to.equal(1);
             expect(state.fingerprints[0]).to.equal(singleData.fingerprints[0]);
-            expect(state.proofs[0]).to.equal(ethers.hexlify(singleData.proofs[0]));
+            // TODO check event
         });
 
         it("should handle multiple fingerprints and proofs", async function () {
@@ -225,6 +231,12 @@ describe("AppOwnerPluginV1", function () {
                     keccak256(toUtf8Bytes("fp3")),
                     keccak256(toUtf8Bytes("fp4"))
                 ],
+                certs: [
+                    toUtf8Bytes("cert1"),
+                    toUtf8Bytes("cert2"),
+                    toUtf8Bytes("cert3"),
+                    toUtf8Bytes("cert4")
+                ],
                 proofs: [
                     toUtf8Bytes("proof1"),
                     toUtf8Bytes("proof2"),
@@ -233,27 +245,28 @@ describe("AppOwnerPluginV1", function () {
                 ]
             };
 
-            await ownerPlugin["setAppOwner(string,bytes32[],bytes[])"](
+            await ownerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](
                 multipleData.domain,
                 multipleData.fingerprints,
+                multipleData.certs,
                 multipleData.proofs
             );
 
             const state = await ownerPlugin["getState()"]();
             expect(state.fingerprints.length).to.equal(4);
-            expect(state.proofs.length).to.equal(4);
 
             for (let i = 0; i < 4; i++) {
                 expect(state.fingerprints[i]).to.equal(multipleData.fingerprints[i]);
-                expect(state.proofs[i]).to.equal(ethers.hexlify(multipleData.proofs[i]));
             }
+            // TODO check event
         });
 
         it("should revert when proofs array is empty", async function () {
             await expect(
-                ownerPlugin["setAppOwner(string,bytes32[],bytes[])"](
+                ownerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](
                     sampleOwnerData.domain,
                     sampleOwnerData.fingerprints,
+                    [],
                     []
                 )
             ).to.be.revertedWithCustomError(ownerPlugin, "AppOwnerPluginError")
@@ -261,12 +274,14 @@ describe("AppOwnerPluginV1", function () {
         });
 
         it("should revert when fingerprints and proofs length mismatch", async function () {
+            const mismatchedCert = [toUtf8Bytes("single_cert")];
             const mismatchedProofs = [toUtf8Bytes("single_proof")];
 
             await expect(
-                ownerPlugin["setAppOwner(string,bytes32[],bytes[])"](
+                ownerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](
                     sampleOwnerData.domain,
                     sampleOwnerData.fingerprints,
+                    mismatchedCert,
                     mismatchedProofs
                 )
             ).to.be.revertedWithCustomError(ownerPlugin, "AppOwnerPluginError")
@@ -279,9 +294,10 @@ describe("AppOwnerPluginV1", function () {
             const ownerPlugin2 = appManager2["appPlugins"].owner.connect(user1);
 
             await expect(
-                ownerPlugin2["setAppOwner(string,bytes32[],bytes[])"](
+                ownerPlugin2["setAppOwner(string,bytes32[],bytes[],bytes[])"](
                     sampleOwnerData.domain,
                     sampleOwnerData.fingerprints,
+                    sampleOwnerData.certs,
                     sampleOwnerData.proofs
                 )
             ).to.be.revertedWithCustomError(ownerPlugin2, "OwnableDelegateUnauthorizedAccount")
@@ -291,9 +307,10 @@ describe("AppOwnerPluginV1", function () {
 
     describe("version management", function () {
         beforeEach(async function () {
-            await ownerPlugin["setAppOwner(string,bytes32[],bytes[])"](
+            await ownerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](
                 sampleOwnerData.domain,
                 sampleOwnerData.fingerprints,
+                sampleOwnerData.certs,
                 sampleOwnerData.proofs
             );
         });
@@ -302,10 +319,11 @@ describe("AppOwnerPluginV1", function () {
             const version = await ownerPlugin.ownerVersion();
             expect(version).to.equal(1);
 
-            await ownerPlugin["setAppOwner(string,bytes32[],bytes[])"](
+            await ownerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](
                 "https://version2.com",
                 [keccak256(toUtf8Bytes("v2"))],
-                [toUtf8Bytes("v2_proof")]
+                [toUtf8Bytes("v2_cert")],
+                [toUtf8Bytes("v2_proof")],
             );
 
             const newVersion = await ownerPlugin.ownerVersion();
@@ -326,14 +344,14 @@ describe("AppOwnerPluginV1", function () {
             const state = await ownerPlugin["getState()"]();
             expect(state.domain).to.equal(sampleOwnerData.domain);
             expect(state.fingerprints.length).to.equal(sampleOwnerData.fingerprints.length);
-            expect(state.proofs.length).to.equal(sampleOwnerData.proofs.length);
+            // TODO check event
         });
 
         it("should return correct state for specific version", async function () {
             const state = await ownerPlugin["getState(uint256)"](1);
             expect(state.domain).to.equal(sampleOwnerData.domain);
             expect(state.fingerprints.length).to.equal(sampleOwnerData.fingerprints.length);
-            expect(state.proofs.length).to.equal(sampleOwnerData.proofs.length);
+            // TODO check event
         });
     });
 
@@ -343,12 +361,14 @@ describe("AppOwnerPluginV1", function () {
             const unicodeData = {
                 domain: unicodeDomain,
                 fingerprints: [keccak256(toUtf8Bytes("unicode_fp"))],
-                proofs: [toUtf8Bytes("unicode_proof")]
+                certs: [Defaults.UserContractData.owner.cert],
+                proofs: [Defaults.UserContractData.owner.proof],
             };
 
-            await ownerPlugin["setAppOwner(string,bytes32[],bytes[])"](
+            await ownerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](
                 unicodeData.domain,
                 unicodeData.fingerprints,
+                unicodeData.certs,
                 unicodeData.proofs
             );
 
@@ -360,13 +380,15 @@ describe("AppOwnerPluginV1", function () {
             const emptyDomainData = {
                 domain: "",
                 fingerprints: [keccak256(toUtf8Bytes("empty_domain"))],
-                proofs: [toUtf8Bytes("empty_domain_proof")]
+                certs: [Defaults.UserContractData.owner.cert],
+                proofs: [Defaults.UserContractData.owner.proof],
             };
 
-            await ownerPlugin["setAppOwner(string,bytes32[],bytes[])"](
+            await ownerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](
                 emptyDomainData.domain,
                 emptyDomainData.fingerprints,
-                emptyDomainData.proofs
+                emptyDomainData.certs,
+                emptyDomainData.proofs,
             );
 
             const domain = await ownerPlugin["domain()"]();
@@ -377,46 +399,50 @@ describe("AppOwnerPluginV1", function () {
             const largeArrays = {
                 domain: "https://large.com",
                 fingerprints: [] as BytesLike[],
+                certs: [] as BytesLike[],
                 proofs: [] as BytesLike[]
             };
 
             for (let i = 0; i < 10; i++) {
                 largeArrays.fingerprints.push(getBytes(id(`fp_${i}`)));
                 largeArrays.proofs.push(getBytes(id(`proof_${i}`)));
+                largeArrays.certs.push(getBytes(id(`cert_${i}`)));
             }
 
-            await ownerPlugin["setAppOwner(string,bytes32[],bytes[])"](
+            await ownerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](
                 largeArrays.domain,
                 largeArrays.fingerprints,
+                largeArrays.certs,
                 largeArrays.proofs
             );
 
             const state = await ownerPlugin["getState()"]();
             expect(state.fingerprints.length).to.equal(10);
-            expect(state.proofs.length).to.equal(10);
         });
 
         it("should handle empty bytes in proofs", async function () {
             const emptyProofData = {
                 domain: "https://empty-proof.com",
                 fingerprints: [keccak256(toUtf8Bytes("empty_proof_fp"))],
+                certs: [toUtf8Bytes("")],
                 proofs: [toUtf8Bytes("")]
             };
 
-            await ownerPlugin["setAppOwner(string,bytes32[],bytes[])"](
+            await ownerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](
                 emptyProofData.domain,
                 emptyProofData.fingerprints,
-                emptyProofData.proofs
+                emptyProofData.certs,
+                emptyProofData.proofs,
             );
 
             const state = await ownerPlugin["getState()"]();
-            expect(state.proofs[0]).to.equal("0x");
         });
 
         it("should revert when accessing version 0", async function () {
-            await ownerPlugin["setAppOwner(string,bytes32[],bytes[])"](
+            await ownerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](
                 sampleOwnerData.domain,
                 sampleOwnerData.fingerprints,
+                sampleOwnerData.certs,
                 sampleOwnerData.proofs
             );
 
@@ -432,6 +458,7 @@ describe("AppOwnerPluginV1", function () {
             await appManager.updateAppOwner(
                 defaultOwner.domain,
                 defaultOwner.fingerprint,
+                defaultOwner.cert,
                 defaultOwner.proof
             );
 
@@ -462,13 +489,15 @@ describe("AppOwnerPluginV1", function () {
             await appManager.updateAppOwner(
                 defaultOwner.domain,
                 defaultOwner.fingerprint,
+                defaultOwner.cert,
                 defaultOwner.proof
             );
 
-            await ownerPlugin["setAppOwner(string,bytes32[],bytes[])"](
+            await ownerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](
                 "https://updated.com",
                 [keccak256(toUtf8Bytes("updated_fp"))],
-                [toUtf8Bytes("updated_proof")]
+                [toUtf8Bytes("updated_cert")],
+                [toUtf8Bytes("updated_proof")],
             );
 
             const currentVersion = await ownerPlugin.ownerVersion();

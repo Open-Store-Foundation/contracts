@@ -23,7 +23,7 @@ struct AppOwnerPluginV1State {
 struct AppOwnerPluginV1Version {
     string domain;
     bytes32[] fingerprints;
-    bytes[] proofs;
+    uint256 blockNumber;
 }
 
 /**
@@ -37,7 +37,7 @@ contract AppOwnerPluginV1 is DelegatedPlugin, VersionableOwner {
     /// @param code Error code indicating the specific failure type
     error AppOwnerPluginError(uint32 code);
 
-    event AppOwnerChanged(uint256 version);
+    event AppOwnerChanged(uint256 version, bytes[] certs, bytes[] proofs);
 
     uint32 constant private PROOF_EMPTY = 1;
     uint32 constant private FINGERPRINT_PROOF_MISMATCH = 2;
@@ -60,14 +60,16 @@ contract AppOwnerPluginV1 is DelegatedPlugin, VersionableOwner {
      * @dev Sets app ownership information (owner only)
      * @param _domain The domain associated with this ownership
      * @param _fingerprints Array of certificate fingerprints
+     * @param _certs der cert
      * @param _proofs Array of cryptographic proofs
      */
     function setAppOwner(
         string calldata _domain,
         bytes32[] calldata _fingerprints,
+        bytes[] calldata _certs,
         bytes[] calldata _proofs
     ) public onlyDelegateOwner {
-        _setAppOwner(_domain, _fingerprints, _proofs);
+        _setAppOwner(_domain, _fingerprints, _certs, _proofs);
     }
 
     /**
@@ -75,27 +77,31 @@ contract AppOwnerPluginV1 is DelegatedPlugin, VersionableOwner {
      * @param sender The address initiating the multicall
      * @param _domain The domain associated with this ownership
      * @param _fingerprints Array of certificate fingerprints
+     * @param _certs der cert
      * @param _proofs Array of cryptographic proofs
      */
     function setAppOwner(
         address sender,
         string calldata _domain,
         bytes32[] calldata _fingerprints,
+        bytes[] calldata _certs,
         bytes[] calldata _proofs
     ) external onlyMulticall {
         _checkDelegateOwner(sender);
-        _setAppOwner(_domain, _fingerprints, _proofs);
+        _setAppOwner(_domain, _fingerprints, _certs, _proofs);
     }
 
     /**
      * @dev Internal function to set app ownership with validation
      * @param _domain The domain associated with this ownership
      * @param _fingerprints Array of certificate fingerprints
+     * @param _certs der cert
      * @param _proofs Array of cryptographic proofs
      */
     function _setAppOwner(
         string calldata _domain,
         bytes32[] calldata _fingerprints,
+        bytes[] calldata _certs,
         bytes[] calldata _proofs
     ) private {
         if (_proofs.length == 0) {
@@ -110,10 +116,10 @@ contract AppOwnerPluginV1 is DelegatedPlugin, VersionableOwner {
         data.versions.push(AppOwnerPluginV1Version({
             domain: _domain,
             fingerprints: _fingerprints,
-            proofs: _proofs
+            blockNumber: block.number
         }));
 
-        emit AppOwnerChanged(data.versions.length);
+        emit AppOwnerChanged(data.versions.length, _certs, _proofs);
     }
 
     /**
@@ -137,6 +143,15 @@ contract AppOwnerPluginV1 is DelegatedPlugin, VersionableOwner {
      */
     function domain(uint256 _version) external view returns (string memory) {
         return state().versions[_version - 1].domain;
+    }
+
+    /**
+     * @dev Returns the domain from a specific ownership version
+     * @param _version The version number (1-indexed)
+     * @return The domain string for the specified version
+     */
+    function dataBlockNumber(uint256 _version) external view returns (uint256) {
+        return state().versions[_version - 1].blockNumber;
     }
 
     /**

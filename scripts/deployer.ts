@@ -4,11 +4,11 @@ import {
     AppOwnerPluginV1,
     AssetlinksOracle,
     ContractStorage,
-    PublisherGreenfieldPluginV1,
-    OpenStore,
-    OpenStoreRequestHandlerV1,
+    OpenStoreRequestHandlerV0, OpenStoreRequestHandlerV1,
+    OpenStoreV0, OpenStoreV1,
     PublisherAccountAppsPluginV1,
     PublisherAccountFactory,
+    PublisherGreenfieldPluginV1,
     TrustedMulticall
 } from "../typechain-types";
 import {HardhatEthersSigner} from "@nomicfoundation/hardhat-ethers/signers";
@@ -26,13 +26,15 @@ export interface CoreContracts {
     storage: ContractStorage
     oracle: AssetlinksOracle
     factory: PublisherAccountFactory
-    store: OpenStore
+    store: OpenStoreV1
+    storeV0: OpenStoreV0
 
     multicallAddress: string
     storageAddress: string
     oracleAddress: string
     factoryAddress: string
     storeAddress: string
+    storeV0Address: string
 }
 
 export interface AppPluginContracts {
@@ -74,13 +76,15 @@ export class ContractsDeployer {
     private _storage?: ContractStorage
     private _oracle?: AssetlinksOracle
     private _factory?: PublisherAccountFactory
-    private _store?: OpenStore
+    private _store?: OpenStoreV1
+    private _storeV0?: OpenStoreV0
 
     private _multicallAddress?: string
     private _storageAddress?: string
     private _oracleAddress?: string
     private _factoryAddress?: string
     private _storeAddress?: string
+    private _storeV0Address?: string
 
     private _appPlugins?: AppPlugins
     private _devPlugins?: DevPlugins
@@ -90,6 +94,7 @@ export class ContractsDeployer {
         readonly config: StoreConfig,
         readonly gfContracts: GfContracts,
         readonly oracleVerificationAmount: bigint,
+        readonly isProtocolZero: boolean = true,
         readonly isLocal: boolean = true,
     ) {}
 
@@ -103,7 +108,12 @@ export class ContractsDeployer {
         await this.deployDevFactory(this.storageAddress)
 
         await this.deployAssetlinksOracle(this.oracleVerificationAmount)
-        await this.deployStore(this.oracleAddress)
+
+        if (this.isProtocolZero) {
+            await this.deployStoreV0(this.oracleAddress)
+        } else {
+            await this.deployStoreV1(this.oracleAddress)
+        }
 
         await this.deployAppPlugins()
         await this.deployDevPlugin(this.storageAddress)
@@ -210,8 +220,8 @@ export class ContractsDeployer {
         return factory
     }
 
-    async deployStore(oracleAddress: string) {
-        if (this._store) {
+    async deployStoreV1(oracleAddress: string) {
+        if (this._storeV0) {
             throw Error("Store is already deployed!")
         }
 
@@ -227,8 +237,8 @@ export class ContractsDeployer {
             oracle: oracleAddress,
             requestHandler: handlerAddr
         } as OpenStoreConfigStruct
-        const store = await deployContract<OpenStore>(
-            "OpenStore",
+        const store = await deployContract<OpenStoreV1>(
+            "OpenStoreV1",
             [this.admin.address, config],
             this.admin
         )
@@ -240,14 +250,44 @@ export class ContractsDeployer {
         return store
     }
 
+    async deployStoreV0(oracleAddress: string) {
+        if (this._storeV0) {
+            throw Error("Store is already deployed!")
+        }
+
+        verbose("Deploying store contract")
+        const requestHandler = await deployContract<OpenStoreRequestHandlerV0>(
+            "OpenStoreRequestHandlerV0", [], this.admin
+        )
+        const handlerAddr = await requestHandler.getAddress()
+        verbose(`Request handler contract: ${handlerAddr}`)
+
+        const config = {
+            ...this.config,
+            oracle: oracleAddress,
+            requestHandler: handlerAddr
+        } as OpenStoreConfigStruct
+        const store = await deployContract<OpenStoreV0>(
+            "OpenStoreV0",
+            [this.admin.address, config],
+            this.admin
+        )
+        const storeAddress = await store.getAddress()
+        verbose(`StoreV0 contract: ${storeAddress}`)
+
+        this._storeV0 = store
+        this._storeV0Address = storeAddress
+        return store
+    }
+
     async deployAppPlugins() {
         if (this._appPlugins) {
             throw Error("App plugins are already deployed!")
         }
 
-        const appOwnerV1 = await deployContract<AppOwnerPluginV1>("AppOwnerPluginV1", [], this.admin)
-        const appOwnerAddress = await appOwnerV1.getAddress()
-        const appOwnerSelectors = await obtainSelectors(appOwnerV1)
+        const appOwner = await deployContract<AppOwnerPluginV1>("AppOwnerPluginV1", [], this.admin)
+        const appOwnerAddress = await appOwner.getAddress()
+        const appOwnerSelectors = await obtainSelectors(appOwner)
 
         const appBuildsV1 = await deployContract<AppBuildsPluginV1>("AppBuildsPluginV1", [], this.admin)
         const appBuildsAddress = await appBuildsV1.getAddress()
@@ -264,6 +304,7 @@ export class ContractsDeployer {
         const _ownerSelectors = [
             "getState",
             "setAppOwner",
+            "dataBlockNumber",
             "ownerVersion",
             "domain",
         ];
@@ -283,7 +324,7 @@ export class ContractsDeployer {
             owner: {
                 address: appOwnerAddress,
                 selectors: selectors(appOwnerSelectors, _ownerSelectors),
-                contract: appOwnerV1,
+                contract: appOwner,
             },
             builds: {
                 address: appBuildsAddress,
@@ -400,13 +441,15 @@ export class ContractsDeployer {
             storage: this.storage,
             oracle: this.oracle,
             factory: this.factory,
-            store: this.store,
+            store: this.store, // TODO
+            storeV0: this.storeV0, // TODO
 
             multicallAddress: this.multicallAddress,
             storageAddress: this.storageAddress,
             oracleAddress: this.oracleAddress,
             factoryAddress: this.factoryAddress,
             storeAddress: this.storeAddress,
+            storeV0Address: this.storeV0Address,
         }
     }
 
@@ -443,11 +486,11 @@ export class ContractsDeployer {
     }
 
     get storeAddress() {
-        if (!this._storeAddress) {
-            throw Error("Store is not deployed!")
-        }
-
         return this._storeAddress
+    }
+
+    get storeV0Address() {
+        return this._storeV0Address
     }
 
     get multicall() {
@@ -483,11 +526,11 @@ export class ContractsDeployer {
     }
 
     get store() {
-        if (!this._store) {
-            throw Error("Store is not deployed!")
-        }
-
         return this._store
+    }
+
+    get storeV0() {
+        return this._storeV0
     }
 
     private printPlugin(name: string, address: string, selectors: Selector[]) {

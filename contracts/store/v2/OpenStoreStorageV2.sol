@@ -8,14 +8,14 @@ pragma solidity ^0.8.21;
  * @param target The contract address being validated (app/game/book etc.)
  * @param data Encoded request data (for android_build: versionCode, ownerVersion, trackId)
  */
-    struct RequestInfo {
-        // 1 - android_build
-        uint256 reqType;
-        // app/game/book etc
-        address target;
-        // android_build - (int64, uint64, uint8) - (versionCode, ownerVersion, trackId)
-        bytes data;
-    }
+struct RequestInfo {
+    // 1 - android_build
+    uint256 reqType;
+    // app/game/book etc
+    address target;
+    // android_build - (int64, uint64, uint8) - (versionCode, ownerVersion, trackId)
+    bytes data;
+}
 
 /**
  * @dev Represents a validator in the consensus system
@@ -25,38 +25,38 @@ pragma solidity ^0.8.21;
  * @param votingBalance Available balance for voting operations
  * @param totalBalance Total staked balance including locked amounts
  */
-    struct Validator {
-        uint256 version;
+struct Validator {
+    uint256 version;
 
-        uint256 validatedRequests;
+    uint256 validatedRequests;
 
-        uint256 balanceAndPower;
-        int256 withdrawStatus;
+    uint256 balanceAndPower;
+    int256 withdrawStatus;
 
-        uint256 nextRequestIdToVote;
-        uint256 nextRequestIdToClaim;
-    }
+    uint256 nextRequestIdToVote;
+    uint256 nextRequestIdToClaim;
+}
 
 /**
  * @dev Main state structure for the OpenStore consensus system
  * Contains all validator, request, proposal, voting, and block data
  */
-    struct OpenStoreState {
-        // Validators
-        uint256 totalBalance;
-        mapping(address => Validator) validators;           // validator address -> validator data
+struct OpenStoreState {
+    // Validators
+    uint256 totalBalance;
+    mapping(address => Validator) validators;           // validator address -> validator data
 
-        // Requests
-        uint256 nextRequestIdToCreate;             // Next request ID to be assigned
-        uint256 nextRequestIdToVote;               // Next request ID to be finalized
+    // Requests
+    uint256 nextRequestIdToCreate;             // Next request ID to be assigned
+    uint256 nextRequestIdToVote;               // Next request ID to be finalized
 
-        mapping(uint256 => RequestInfo) requests;           // requestId -> request data
-        mapping(uint256 => uint256) requestVotingDeadline;  // requestId -> voting deadline timestamp
+    mapping(uint256 => RequestInfo) requests;           // requestId -> request data
+    mapping(uint256 => uint256) requestVotingDeadline;  // requestId -> voting deadline timestamp
 
-        mapping(uint256 => mapping(uint8 => uint256)) votingState; // reqId - status - uint256(uint128(balance) and uint128(power))
-        mapping(uint256 => mapping(address => uint256)) votes; // reqId - validator - uint256(uint128(balance) and uint120(power) and uint8(status))
-        mapping(uint256 => uint8) statusWinner;
-    }
+    mapping(uint256 => mapping(uint8 => uint256)) votingState; // reqId - status - uint256(uint128(balance) and uint128(power))
+    mapping(uint256 => mapping(address => uint256)) votes; // reqId - validator - uint256(uint128(balance) and uint120(power) and uint8(status))
+    mapping(uint256 => uint8) statusWinner;
+}
 
 //////////////////
 //////////////////
@@ -65,9 +65,9 @@ pragma solidity ^0.8.21;
 /**
  * @dev Storage for validated builds and release tracks
  */
-    struct OpenStoreVault {
-        mapping(address => bool) visibility;                        // app -> is_visible
-    }
+struct OpenStoreVault {
+    mapping(address => bool) visibility;                        // app -> is_visible
+}
 
 //////////////////
 //////////////////
@@ -76,18 +76,18 @@ pragma solidity ^0.8.21;
 /**
  * @dev Configuration parameters for the OpenStore system
  */
-    struct OpenStoreConfig {
-        // Main
-        bool isRequestsSuspended;           // Flag to suspend new validation requests
-        bool isVoteSuspended;              // Flag to suspend validator queue operations
+struct OpenStoreConfig {
+    // Main
+    bool isRequestsSuspended;           // Flag to suspend new validation requests
+    bool isVoteSuspended;              // Flag to suspend validator queue operations
 
-        uint64 minValidatorVersion;         // Minimum required validator version
-        address oracle;
+    uint64 minValidatorVersion;         // Minimum required validator version
+    address oracle;
 
-        // Economic Parameters
-        uint256 validationRequestAmount;    // Fee for request validation
-        uint256 minStakeAmount;             // Minimum stake to become validator
-    }
+    // Economic Parameters
+    uint256 validationRequestAmount;    // Fee for request validation
+    uint256 minStakeAmount;             // Minimum stake to become validator
+}
 
 //////////////////
 //////////////////

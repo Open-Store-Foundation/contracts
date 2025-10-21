@@ -173,5 +173,3 @@ Hardhat network configuration is defined in `hardhat.config.ts`.
 ### License
 
 See `LICENSE`.
-
-

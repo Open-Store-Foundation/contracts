@@ -34,10 +34,6 @@ describe("PublisherAccountFactory", function () {
 
         await deployer.deployAndSetupAll();
         core = deployer.coreManager;
-
-        const topUpAmount = ethers.parseEther("15");
-        const result = await wait(core.contracts.store.topUp({value: topUpAmount}));
-        expect(result.status).to.equal(1);
     });
 
     describe("constructor", function () {
@@ -142,8 +138,8 @@ describe("PublisherAccountFactory", function () {
 
             const nameHash = id(accountName);
             const factory = core.contracts.factory;
-            const address1 = await factory.computeAccountAddress(user1.address, nameHash);
-            const address2 = await factory.computeAccountAddress(user2.address, nameHash);
+            const address1 = await factory["computeAccountAddress(address,string)"](user1.address, nameHash);
+            const address2 = await factory["computeAccountAddress(address,string)"](user2.address, nameHash);
 
             expect(address1).to.not.equal(address2);
             expect(address1).to.not.equal(ethers.ZeroAddress);
@@ -180,7 +176,7 @@ describe("PublisherAccountFactory", function () {
     describe("constants", function () {
         it("should have correct DEV_ACCOUNT_PLUGINS constant", async function () {
             const expectedHash = ethers.id("openstore.plugins.default.PublisherAccount.v1");
-            const actualHash = await core.contracts.factory.DEV_ACCOUNT_PLUGINS();
+            const actualHash = await core.contracts.factory.PUBLISHER_ACCOUNT_PLUGINS();
 
             expect(actualHash).to.equal(expectedHash);
         });

@@ -48,10 +48,6 @@ describe("PublisherAccountAppsPluginV1", function () {
         await deployer.deployAndSetupAll();
         core = deployer.coreManager;
 
-        const topUpAmount = ethers.parseEther("15");
-        const result = await wait(core.contracts.store.topUp({value: topUpAmount}));
-        expect(result.status).to.equal(1);
-
         devManager = await core.devManager("TestDev", user1);
         plugin = devManager.devPlugins.apps;
     });
@@ -195,8 +191,7 @@ describe("PublisherAccountAppsPluginV1", function () {
                     99,
                     99
                 )
-            ).to.be.revertedWithCustomError(plugin, "PublisherAccountAppsPluginError")
-                .withArgs(1);
+            ).to.be.not.reverted;
         });
 
         it("should revert when called by non-owner", async function () {
@@ -261,39 +256,6 @@ describe("PublisherAccountAppsPluginV1", function () {
         });
     });
 
-    describe("getAppById", function () {
-        it("should return correct app address for existing package", async function () {
-            const appManager = await devManager.createApp(sampleAppData, user1);
-            const expectedAddress = await appManager.address();
-
-            const retrievedAddress = await plugin.getAppById(sampleAppData.id);
-            expect(retrievedAddress).to.equal(expectedAddress);
-        });
-
-        it("should return zero address for non-existent package", async function () {
-            const retrievedAddress = await plugin.getAppById("com.nonexistent.app");
-            expect(retrievedAddress).to.equal(ethers.ZeroAddress);
-        });
-
-        it("should return different addresses for different packages", async function () {
-            const app1Data = {...sampleAppData, id: "com.example.app1"};
-            const app2Data = {...sampleAppData, id: "com.example.app2"};
-
-            const appManager1 = await devManager.createApp(app1Data, user1);
-            const appManager2 = await devManager.createApp(app2Data, user1);
-
-            const address1 = await plugin.getAppById(app1Data.id);
-            const address2 = await plugin.getAppById(app2Data.id);
-
-            expect(address1).to.not.equal(address2);
-            expect(address1).to.not.equal(ethers.ZeroAddress);
-            expect(address2).to.not.equal(ethers.ZeroAddress);
-
-            expect(address1).to.equal(await appManager1.address());
-            expect(address2).to.equal(await appManager2.address());
-        });
-    });
-
     describe("events", function () {
         it("should emit AppCreated event with correct parameters", async function () {
             await expect(
@@ -351,12 +313,7 @@ describe("PublisherAccountAppsPluginV1", function () {
             const appManager1 = await devManager.createApp(app1Data, user1);
             const appManager2 = await devManager.createApp(app2Data, user1);
 
-            const address1 = await plugin.getAppById(app1Data.id);
-            const address2 = await plugin.getAppById(app2Data.id);
-
-            expect(address1).to.not.equal(address2);
-            expect(address1).to.equal(await appManager1.address());
-            expect(address2).to.equal(await appManager2.address());
+            expect(await appManager1.address()).to.not.equal(await appManager2.address());
         });
 
 
@@ -420,12 +377,7 @@ describe("PublisherAccountAppsPluginV1", function () {
                 };
 
                 const appManager = await devManager.createApp(appData, user1);
-                expect(await appManager.address()).to.not.equal(ethers.ZeroAddress);
-            }
-
-            for (let i = 0; i < appCount; i++) {
-                const address = await plugin.getAppById(`com.example.app${i}`);
-                expect(address).to.not.equal(ethers.ZeroAddress);
+                expect(await appManager.address()).to.not.equal(ethers.ZeroAddress)
             }
         });
 

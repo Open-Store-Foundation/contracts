@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.21;
 
-import {VersionableOwner} from "../../interfaces/VersionableOwner.sol";
+import "./OpenStoreStorageV1.sol";
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {BitmaskComparator} from "../../libs/BitmaskComparator.sol";
 import {BytesParser} from "../../libs/BytesParser.sol";
-import {Trustable} from "../../multicall/Trustable.sol";
+import {IOpenStoreRequestHandler} from "../IOpenStoreRequestHandler.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {OpenStoreConfigV1, OpenStoreStateV1, OpenStoreStorageV1, OpenStoreStateV1, ValidatorV1, BlockRefV1, RequestInfoV1} from "./OpenStoreStorageV1.sol";
+import {PluginDelegatedOwner} from "../../plugin/delegate/PluginDelegatedOwner.sol";
 import {PluginManager} from "../../plugin/PluginManager.sol";
 import {PluginOwnable} from "../../plugin/PluginOwnable.sol";
-import {PluginDelegatedOwner} from "../../plugin/delegate/PluginDelegatedOwner.sol";
-import {IOpenStoreRequestHandler} from "./IOpenStoreRequestHandler.sol";
-import {OpenStoreConfig, OpenStoreState, OpenStoreStorage, OpenStoreVault, Validator, BlockRef, RequestInfo} from "./OpenStoreStorage.sol";
-import {Address} from "@openzeppelin/contracts/utils/Address.sol";
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {Trustable} from "../../multicall/Trustable.sol";
+import {VersionableOwner} from "../../interfaces/VersionableOwner.sol";
 
 /**
  * @title OpenStore
@@ -21,7 +22,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
  *      mechanism to achieve consensus on proposed blocks of validated requests.
  * 
  * Key Features:
- * - Validator registration with staking requirements
+ * - ValidatorV1 registration with staking requirements
  * - Block proposal and voting system for request validation
  * - Economic incentives through rewards and slashing
  * - Request queuing and processing system
@@ -35,7 +36,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
  * 4. Other validators vote on proposals during a specified time window
  * 5. Winning proposals are finalized, and rewards/slashing are distributed
  */
-contract OpenStore is PluginManager {
+contract OpenStoreV1 is PluginManager {
 
     using BytesParser for bytes;
     using BitmaskComparator for uint256;
@@ -45,14 +46,14 @@ contract OpenStore is PluginManager {
     
     // Error codes
     uint16 private constant ERROR_VERSION_CONFIG_MUST_INCREASE = 1;           // Version must be higher than current
-    uint16 private constant ERROR_VALIDATOR_UNSUPPORTED_VERSION = 2;          // Validator version too old
-    uint16 private constant ERROR_VALIDATOR_ALREADY_REGISTERED = 3;           // Validator already exists
+    uint16 private constant ERROR_VALIDATOR_UNSUPPORTED_VERSION = 2;          // ValidatorV1 version too old
+    uint16 private constant ERROR_VALIDATOR_ALREADY_REGISTERED = 3;           // ValidatorV1 already exists
     uint16 private constant ERROR_INSUFFICIENT_STAKE = 4;                     // Not enough stake to register/maintain
-    uint16 private constant ERROR_VALIDATOR_NOT_REGISTERED = 5;               // Validator doesn't exist
-    uint16 private constant ERROR_VALIDATOR_IN_QUEUE = 6;                     // Validator has assigned block
-    uint16 private constant ERROR_VALIDATOR_IN_EMERGENCY_LOCK = 7;            // Validator in emergency lock
+    uint16 private constant ERROR_VALIDATOR_NOT_REGISTERED = 5;               // ValidatorV1 doesn't exist
+    uint16 private constant ERROR_VALIDATOR_IN_QUEUE = 6;                     // ValidatorV1 has assigned block
+    uint16 private constant ERROR_VALIDATOR_IN_EMERGENCY_LOCK = 7;            // ValidatorV1 in emergency lock
     uint16 private constant ERROR_QUEUE_SUSPENDED = 8;                        // Queue operations suspended
-    uint16 private constant ERROR_VALIDATOR_ALREADY_IN_QUEUE = 9;             // Validator already has block assigned
+    uint16 private constant ERROR_VALIDATOR_ALREADY_IN_QUEUE = 9;             // ValidatorV1 already has block assigned
     uint16 private constant ERROR_BLOCK_ID_NOT_INCREMENTAL = 10;              // Block IDs must be sequential
     uint16 private constant ERROR_INSUFFICIENT_BALANCE_FOR_PROPOSAL = 11;     // Not enough balance to propose
     uint16 private constant ERROR_INSUFFICIENT_VOTING_BALANCE = 12;           // Not enough voting balance
@@ -65,7 +66,7 @@ contract OpenStore is PluginManager {
     uint16 private constant ERROR_SENDER_NOT_BLOCK_OWNER = 23;                // Sender doesn't own the block
     uint16 private constant ERROR_INVALID_TO_REQUEST_ID = 24;                 // Invalid ending request ID
     uint16 private constant ERROR_INVALID_FROM_REQUEST_ID = 25;               // Invalid starting request ID
-    uint16 private constant ERROR_PROPOSAL_VALIDATOR_ALREADY_EXISTS = 26;     // Validator already has proposal
+    uint16 private constant ERROR_PROPOSAL_VALIDATOR_ALREADY_EXISTS = 26;     // ValidatorV1 already has proposal
     uint16 private constant ERROR_PROPOSAL_HASH_ALREADY_EXISTS = 26;          // Duplicate proposal hash
     uint16 private constant ERROR_NO_PROPOSAL_TO_DISCUSS = 27;                // No proposal exists for discussion
     uint16 private constant ERROR_DISCUSSION_FROM_REQ_ID_MISMATCH = 28;       // Discussion request ID mismatch
@@ -83,7 +84,7 @@ contract OpenStore is PluginManager {
     uint16 private constant ERROR_PROPOSAL_NOT_READY_TO_FINALIZE = 39;        // Proposal can't be finalized yet
     uint16 private constant ERROR_INVALID_TRACK_ID = 40;                      // Invalid distribution track ID
     uint16 private constant ERROR_BUILD_VERSION_DOWNGRADED = 41;              // Version lower than current
-    uint16 private constant ERROR_VALIDATOR_STILL_ACTIVE = 44;                // Validator still active
+    uint16 private constant ERROR_VALIDATOR_STILL_ACTIVE = 44;                // ValidatorV1 still active
 
     /// @dev Status codes for validation results
     uint256 constant public STATUS_UNAVAILABLE = 0;  // Request could not be processed
@@ -160,8 +161,8 @@ contract OpenStore is PluginManager {
     /// @notice Possible statuses when checking if a validator can be assigned to a block
     enum ValidatorAssignStatus {
         Assignable,          // Can be assigned to next block
-        VersionOutdated,     // Validator version too old
-        NotRegistered,       // Validator not registered
+        VersionOutdated,     // ValidatorV1 version too old
+        NotRegistered,       // ValidatorV1 not registered
         NotEnoughVotes,      // Insufficient voting balance
         AlreadyAssigned      // Already has block assigned
     }
@@ -175,9 +176,9 @@ contract OpenStore is PluginManager {
      */
     constructor(
         address _owner,
-        OpenStoreConfig memory _config
+        OpenStoreConfigV1 memory _config
     ) PluginManager(_owner) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
 
         // Initialize block tracking - start at 1 to avoid confusion with 0/null values
         state.nextBlockId = 1;
@@ -192,8 +193,8 @@ contract OpenStore is PluginManager {
         state.activeValidators.push(address(0));
 
         // Set initial configuration
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
-        OpenStoreStorage.setStoreConfig(config, _config);
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
+        OpenStoreStorageV1.setStoreConfig(cfg, _config);
     }
 
     //////////////////////
@@ -205,8 +206,8 @@ contract OpenStore is PluginManager {
      * @return The current version number
      */
     function version() external view returns (uint64) {
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
-        return config.version;
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
+        return cfg.version;
     }
 
     /**
@@ -215,12 +216,12 @@ contract OpenStore is PluginManager {
      * @dev Version can only increase to prevent downgrade attacks
      */
     function setVersion(uint64 newVersion) external onlyOwner {
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
 
-        if (config.version >= newVersion) {
+        if (cfg.version >= newVersion) {
             revert OpenStoreError(ERROR_VERSION_CONFIG_MUST_INCREASE);
         }
-        config.version = newVersion;
+        cfg.version = newVersion;
 
         emit ConfigChanged();
     }
@@ -230,8 +231,8 @@ contract OpenStore is PluginManager {
      * @return The minimum validator version that can participate
      */
     function minValidatorVersion() external view returns (uint64) {
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
-        return config.minValidatorVersion;
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
+        return cfg.minValidatorVersion;
     }
 
     /**
@@ -240,8 +241,8 @@ contract OpenStore is PluginManager {
      * @dev Validators below this version cannot participate in validation
      */
     function setMinValidatorVersion(uint64 newVersion) external onlyOwner {
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
-        config.minValidatorVersion = newVersion;
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
+        cfg.minValidatorVersion = newVersion;
 
         emit ConfigChanged();
     }
@@ -251,18 +252,18 @@ contract OpenStore is PluginManager {
      * @return The minimum stake amount in wei
      */
     function getMinStakeAmount() external view returns (uint256) {
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
-        return config.minStakeAmount;
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
+        return cfg.minStakeAmount;
     }
 
     function setValidationRequestAmount(uint256 amount) external onlyOwner {
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
-        config.validationRequestAmount = amount;
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
+        cfg.validationRequestAmount = amount;
     }
 
     function getValidationRequestAmount() external view returns (uint256) {
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
-        return config.validationRequestAmount;
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
+        return cfg.validationRequestAmount;
     }
 
     /**
@@ -270,16 +271,16 @@ contract OpenStore is PluginManager {
      * @return The basic amount in wei that cannot be spent
      */
     function getBasicAmount() external view returns (uint256) {
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
-        return config.basicAmount;
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
+        return cfg.basicAmount;
     }
 
     /**
      * @notice Gets the complete current configuration
-     * @return The current OpenStoreConfig struct
+     * @return The current OpenStoreConfigV1 struct
      */
-    function config() external view returns (OpenStoreConfig memory) {
-        return OpenStoreStorage.openStoreConfig();
+    function config() external view returns (OpenStoreConfigV1 memory) {
+        return OpenStoreStorageV1.openStoreConfig();
     }
 
     /**
@@ -288,8 +289,8 @@ contract OpenStore is PluginManager {
      * @dev Can be called by owner or authorized addresses for emergency suspension
      */
     function setIsRequestsSuspended(bool isSuspended) public onlyOwner {
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
-        config.isRequestsSuspended = isSuspended;
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
+        cfg.isRequestsSuspended = isSuspended;
 
         emit RequestsStatusChanged(isSuspended);
     }
@@ -300,8 +301,8 @@ contract OpenStore is PluginManager {
      * @dev Can be called by owner or authorized addresses for emergency suspension
      */
     function setIsQueueSuspended(bool isSuspended) public onlyOwner {
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
-        config.isQueueSuspended = isSuspended;
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
+        cfg.isQueueSuspended = isSuspended;
 
         emit QueueStatusChanged(isSuspended);
     }
@@ -311,9 +312,9 @@ contract OpenStore is PluginManager {
      * @param _config The new configuration to apply
      * @dev Replaces all configuration values with the provided ones
      */
-    function updateConfig(OpenStoreConfig calldata _config) external onlyOwner  {
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
-        OpenStoreStorage.setStoreConfig(config, _config);
+    function updateConfig(OpenStoreConfigV1 calldata _config) external onlyOwner  {
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
+        OpenStoreStorageV1.setStoreConfig(cfg, _config);
 
         emit ConfigChanged();
     }
@@ -340,9 +341,9 @@ contract OpenStore is PluginManager {
      * @dev Compares stored build ownership version with current asset owner version
      */
     function isBuildVerified(address asset, uint256 versionCode) external view returns (bool) {
-        VersionableOwner version = VersionableOwner(asset);
-        OpenStoreVault storage vault = OpenStoreStorage.openStoreVault();
-        return vault.builds[asset][versionCode] == version.ownerVersion();
+        VersionableOwner owner = VersionableOwner(asset);
+        OpenStoreVaultV1 storage vault = OpenStoreStorageV1.openStoreVault();
+        return vault.builds[asset][versionCode] == owner.ownerVersion();
     }
 
     /**
@@ -353,7 +354,7 @@ contract OpenStore is PluginManager {
      * @dev Used to track ownership at the time of build validation
      */
     function getOwnershipVersion(address asset, uint256 buildId) external view returns (uint256) {
-        OpenStoreVault storage vault = OpenStoreStorage.openStoreVault();
+        OpenStoreVaultV1 storage vault = OpenStoreStorageV1.openStoreVault();
         return vault.builds[asset][buildId];
     }
 
@@ -365,7 +366,7 @@ contract OpenStore is PluginManager {
      * @dev Different tracks can have different versions (e.g., stable, beta, alpha)
      */
     function getLastAppVersion(address asset, uint256 channel) external view returns (uint256) {
-        OpenStoreVault storage vault = OpenStoreStorage.openStoreVault();
+        OpenStoreVaultV1 storage vault = OpenStoreStorageV1.openStoreVault();
         return vault.tracks[asset][channel];
     }
 
@@ -380,7 +381,7 @@ contract OpenStore is PluginManager {
             revert OpenStoreError(ERROR_NOT_TARGET_OWNER);
         }
 
-        OpenStoreVault storage vault = OpenStoreStorage.openStoreVault();
+        OpenStoreVaultV1 storage vault = OpenStoreStorageV1.openStoreVault();
         vault.visibility[asset] = isVisible;
     }
 
@@ -394,7 +395,7 @@ contract OpenStore is PluginManager {
      * @dev Used for calculating voting power and participation percentages
      */
     function totalBalance() external view returns (uint256) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         return state.totalBalance;
     }
 
@@ -412,7 +413,7 @@ contract OpenStore is PluginManager {
      * @dev Provides a comprehensive state snapshot for validator operations
      */
     function getLastState(address validator) external view returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         return (
             block.number,
             state.nextBlockId,
@@ -426,7 +427,7 @@ contract OpenStore is PluginManager {
     }
 
     //////////////////////
-    // Validator Information
+    // ValidatorV1 Information
     //////////////////////
     
     /**
@@ -435,7 +436,7 @@ contract OpenStore is PluginManager {
      * @return The validator's total balance including stake and rewards
      */
     function validatorTotalBalance(address validator) external view returns (uint256) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         return state.validators[validator].totalBalance;
     }
 
@@ -446,7 +447,7 @@ contract OpenStore is PluginManager {
      * @dev This is the balance available for proposals, votes, and withdrawals
      */
     function balance(address validator) external view returns (uint256) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         return state.validators[validator].balance;
     }
 
@@ -456,19 +457,19 @@ contract OpenStore is PluginManager {
      * @return The count of blocks this validator has had finalized
      */
     function blocksValidated(address validator) external view returns (uint256) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         return state.validators[validator].blocksCreated;
     }
 
     /**
      * @notice Checks if a validator can be assigned to validate the next block
      * @param validatorAddr The validator address to check
-     * @param version The validator's software version
+     * @param validatorVersion The validator's software version
      * @return Status indicating why assignment is possible or not
      * @dev Performs comprehensive eligibility check including version, registration, voting balance, and current assignments
      */
-    function validatorAssignStatus(address validatorAddr, uint64 version) view external returns (ValidatorAssignStatus) {
-        if (version < this.minValidatorVersion()) {
+    function validatorAssignStatus(address validatorAddr, uint64 validatorVersion) view external returns (ValidatorAssignStatus) {
+        if (validatorVersion < this.minValidatorVersion()) {
             return ValidatorAssignStatus.VersionOutdated;
         }
 
@@ -494,8 +495,8 @@ contract OpenStore is PluginManager {
      * @dev Compares validator's voting balance against required votes based on their stake proportion
      */
     function canAssignValidator(address validatorAddr) view external returns (bool) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
-        Validator storage validator = state.validators[validatorAddr];
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
+        ValidatorV1 storage validator = state.validators[validatorAddr];
         uint256 votesToEnqueue = votesToAssign(validatorAddr);
         uint256 voteBalance = validator.votingBalance;
 
@@ -511,17 +512,17 @@ contract OpenStore is PluginManager {
      *      Returns max uint256 if total balance is 0, and 0 if validator share is minimal
      */
     function votesToAssign(address validatorAddr) view private returns (uint256) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
-        Validator storage validator = state.validators[validatorAddr];
-        uint256 validatorTotalBalance = validator.totalBalance;
-        uint256 totalBalance = state.totalBalance;
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
+        ValidatorV1 storage validator = state.validators[validatorAddr];
+        uint256 _validatorTotalBalance = validator.totalBalance;
+        uint256 _totalBalance = state.totalBalance;
 
-        if (validatorTotalBalance == 0 || totalBalance == 0) {
+        if (_validatorTotalBalance == 0 || _totalBalance == 0) {
             return type(uint256).max;
         }
 
         // Calculate validator's share as percentage in gwei units
-        uint256 validatorShareGweiPercent = Math.mulDiv(totalBalance, PRECISION_SCALE_AND_VOTE_UNIT, validatorTotalBalance);
+        uint256 validatorShareGweiPercent = Math.mulDiv(_totalBalance, PRECISION_SCALE_AND_VOTE_UNIT, _validatorTotalBalance);
         if (validatorShareGweiPercent <= PRECISION_SCALE_AND_VOTE_UNIT) {
             return 0;
         }
@@ -539,7 +540,7 @@ contract OpenStore is PluginManager {
      * @dev First proposer in array is the main proposer, others are discussions/alternatives
      */
     function getBlockProposers(uint256 blockId) view external returns (address[] memory) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         return state.blockProposers[blockId];
     }
 
@@ -553,7 +554,7 @@ contract OpenStore is PluginManager {
      * @dev This increments when validators request block assignments
      */
     function nextBlockIdToValidated() external view returns (uint256) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         return state.nextBlockId;
     }
 
@@ -564,7 +565,7 @@ contract OpenStore is PluginManager {
      * @dev Validators can only have one block assigned at a time
      */
     function nextBlockIdFor(address validator) external view returns (uint256) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         return state.validatorLocker[validator];
     }
 
@@ -575,7 +576,7 @@ contract OpenStore is PluginManager {
      * @dev Emergency lock occurs when validators create discussion proposals or late proposals
      */
     function emergencyBlockIdFor(address validator) external view returns (uint256) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         return state.emergencyLocker[validator];
     }
 
@@ -585,7 +586,7 @@ contract OpenStore is PluginManager {
      * @dev This increments when the first proposal is made for a block
      */
     function nextBlockIdToPropose() external view returns (uint256) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         return state.nextProposalBlockId;
     }
 
@@ -595,7 +596,7 @@ contract OpenStore is PluginManager {
      * @dev Blocks must be finalized in order
      */
     function nextBlockIdToFinalize() external view returns (uint256) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         return state.nextFinalBlockId;
     }
 
@@ -605,8 +606,8 @@ contract OpenStore is PluginManager {
      * @return The complete block reference with all metadata
      * @dev Only returns data for finalized blocks
      */
-    function getBlockRef(uint256 blockId) external view returns (BlockRef memory) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+    function getBlockRef(uint256 blockId) external view returns (BlockRefV1 memory) {
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         return state.blocks[blockId];
     }
 
@@ -628,7 +629,7 @@ contract OpenStore is PluginManager {
      * @dev Useful for UIs to show validator's involvement with specific blocks
      */
     function blockStateFor(uint256 blockId, address validator) external view returns (uint8) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
 
         // Check if block is assigned to this validator
         if (state.queue[blockId] == validator) {
@@ -670,14 +671,14 @@ contract OpenStore is PluginManager {
      *      Returns voting statistics to help determine finalization readiness
      */
     function isFinalazible(uint256 blockId) external view returns (address, uint256, uint256, uint256, uint256) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         if (blockId != state.nextFinalBlockId) {
             revert OpenStoreError(ERROR_BLOCK_ID_NOT_NEXT_TO_FINALIZE);
         }
 
         // Get voting configuration
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
-        uint256 blockWindow = config.voteBlockWindow;
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
+        uint256 blockWindow = cfg.voteBlockWindow;
 
         address[] memory proposers = state.blockProposers[blockId];
 
@@ -688,8 +689,7 @@ contract OpenStore is PluginManager {
             uint256 maxVotes,
             uint256 subMaxVotes,
             uint256 rest,
-            uint256 a,
-            uint256 b
+            ,
         ) = _calculateVotes(
             state, proposers, blockId, 0, blockWindow
         );
@@ -710,32 +710,32 @@ contract OpenStore is PluginManager {
         uint8,
         address
     ) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
-        BlockRef memory block = state.blockProposals[block_id][validator];
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
+        BlockRefV1 memory ref = state.blockProposals[block_id][validator];
 
         return (
-            block.id,
-            block.fromRequestId,
-            block.toRequestId,
-            block.result,
+            ref.id,
+            ref.fromRequestId,
+            ref.toRequestId,
+            ref.result,
 
-            block.objectHash,
-            block.objectId,
-            block.protocolId,
+            ref.objectHash,
+            ref.objectId,
+            ref.protocolId,
 
-            block.blockMask,
-            block.createdBy
+            ref.blockMask,
+            ref.createdBy
         );
     }
 
     // Requests
     function nextRequestIdToValidate() external view returns (uint256) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         return state.nextRequestId;
     }
 
     function leastRequestIdToFinalize() external view returns (uint256) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         uint256 lastBlockFinal = state.nextFinalBlockId - 1;
         uint256 requestId = state.blocks[lastBlockFinal].toRequestId;
 
@@ -747,7 +747,7 @@ contract OpenStore is PluginManager {
     }
 
     function nextRequestIdToPropose() public view returns (uint256) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         uint256 lastBlockProposal = state.nextProposalBlockId - 1; // nextProposalBlockId starts with 1
         if (lastBlockProposal == 0) {
             return 1;
@@ -763,18 +763,18 @@ contract OpenStore is PluginManager {
     }
 
     //////////////////////
-    // Validator Management
+    // ValidatorV1 Management
     //////////////////////
     
     /**
      * @notice Checks if an address is a registered validator
-     * @param validator The address to check
+     * @param _validator The address to check
      * @return True if the address is a registered validator
      * @dev Validators must be registered to participate in validation and voting
      */
-    function isValidatorRegistered(address validator) external view returns (bool) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
-        Validator storage validator = state.validators[validator];
+    function isValidatorRegistered(address _validator) external view returns (bool) {
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
+        ValidatorV1 storage validator = state.validators[_validator];
         return validator.id > 0;
     }
 
@@ -785,20 +785,20 @@ contract OpenStore is PluginManager {
      *      Adds validator to active set and enables participation in consensus
      */
     function registerValidator(uint64 validatorVersion) external {
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
-        if (validatorVersion < config.minValidatorVersion) {
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
+        if (validatorVersion < cfg.minValidatorVersion) {
             revert OpenStoreError(ERROR_VALIDATOR_UNSUPPORTED_VERSION);
         }
 
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
-        Validator storage validator = state.validators[msg.sender];
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
+        ValidatorV1 storage validator = state.validators[msg.sender];
         if (validator.id != 0) {
             revert OpenStoreError(ERROR_VALIDATOR_ALREADY_REGISTERED);
         }
 
-        uint256 minStakeAmount = config.minStakeAmount;
-        uint256 totalBalance = validator.totalBalance;
-        if (totalBalance < minStakeAmount) {
+        uint256 minStakeAmount = cfg.minStakeAmount;
+        uint256 _totalBalance = validator.totalBalance;
+        if (_totalBalance < minStakeAmount) {
             revert OpenStoreError(ERROR_INSUFFICIENT_STAKE);
         }
 
@@ -807,7 +807,7 @@ contract OpenStore is PluginManager {
         validator.id = state.activeValidators.length - 1;
         validator.version = validatorVersion;
         validator.lastActivityBlockId = state.nextFinalBlockId; // Track activity from registration
-        state.totalBalance += totalBalance;
+        state.totalBalance += _totalBalance;
     }
 
     /**
@@ -817,30 +817,30 @@ contract OpenStore is PluginManager {
      * validator is unregistered and `overdueProposalFee` is paid to the sender as reward.
      */
     function unregisterInactiveValidator(address validatorAddr) external {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
 
-        Validator storage validator = state.validators[validatorAddr];
+        ValidatorV1 storage validator = state.validators[validatorAddr];
 
         uint256 nextFinalBlockId = state.nextFinalBlockId;
         uint256 lastActivityBlockId = validator.lastActivityBlockId;
 
         // Check inactivity window
-        if (nextFinalBlockId < lastActivityBlockId || nextFinalBlockId - lastActivityBlockId <= config.maxInactiveBlocks) {
+        if (nextFinalBlockId < lastActivityBlockId || nextFinalBlockId - lastActivityBlockId <= cfg.maxInactiveBlocks) {
             revert OpenStoreError(ERROR_VALIDATOR_STILL_ACTIVE);
         }
 
         // Remove from activeValidators array
         unregisterValidator(state, validator, validatorAddr);
 
-        uint256 rewardAmount = config.inactiveFee;
+        uint256 rewardAmount = cfg.inactiveFee;
         if (rewardAmount > validator.balance) {
             rewardAmount = validator.balance;
         }
 
         // Slash validator balance and reward sender
         if (rewardAmount > 0) {
-            Validator storage rewardValidator = state.validators[msg.sender];
+            ValidatorV1 storage rewardValidator = state.validators[msg.sender];
             validator.balance -= rewardAmount;
             validator.totalBalance -= rewardAmount;
             rewardValidator.balance += rewardAmount;
@@ -851,14 +851,14 @@ contract OpenStore is PluginManager {
     }
 
     function unregisterValidator() external {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
-        Validator storage validator = state.validators[msg.sender];
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
+        ValidatorV1 storage validator = state.validators[msg.sender];
         unregisterValidator(state, validator, msg.sender);
     }
 
     function unregisterValidator(
-        OpenStoreState storage state,
-        Validator storage validator,
+        OpenStoreStateV1 storage state,
+        ValidatorV1 storage validator,
         address validatorAddr
     ) private {
         uint256 id = validator.id;
@@ -885,18 +885,18 @@ contract OpenStore is PluginManager {
     }
 
     function assignBlockId(uint256 blockId) external {
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
-        if (config.isQueueSuspended) {
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
+        if (cfg.isQueueSuspended) {
             revert OpenStoreError(ERROR_QUEUE_SUSPENDED);
         }
 
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         address validatorAddr = msg.sender;
-        Validator storage validator = state.validators[validatorAddr];
+        ValidatorV1 storage validator = state.validators[validatorAddr];
         if (validator.id == 0) {
             revert OpenStoreError(ERROR_VALIDATOR_NOT_REGISTERED);
         }
-        if (validator.version < config.minValidatorVersion) {
+        if (validator.version < cfg.minValidatorVersion) {
             revert OpenStoreError(ERROR_VALIDATOR_UNSUPPORTED_VERSION);
         }
         if (state.validatorLocker[validatorAddr] != 0) {
@@ -914,10 +914,10 @@ contract OpenStore is PluginManager {
         state.queue[blockId] = validatorAddr;
 
         // Check balance
-        uint256 balance = validator.balance;
-        uint256 unspendableAmount = config.basicAmount;
-        uint256 proposalAmount = config.baseProposalAmount;
-        if (balance < proposalAmount + unspendableAmount) {
+        uint256 validatorBalance = validator.balance;
+        uint256 unspendableAmount = cfg.basicAmount;
+        uint256 proposalAmount = cfg.baseProposalAmount;
+        if (validatorBalance < proposalAmount + unspendableAmount) {
             revert OpenStoreError(ERROR_INSUFFICIENT_BALANCE_FOR_PROPOSAL);
         }
 
@@ -926,7 +926,7 @@ contract OpenStore is PluginManager {
         // If there's no any block competition, we can assign without votingBalance spending
         // Check voting balance
         // nextFinalBlockId can't be more than blockId
-        if (config.maxParallelProposals <= (blockId - state.nextFinalBlockId)) {
+        if (cfg.maxParallelProposals <= (blockId - state.nextFinalBlockId)) {
             uint256 votesToEnqueue = votesToAssign(validatorAddr);
             uint256 votingBalance = validator.votingBalance;
             if (votingBalance < votesToEnqueue) {
@@ -944,8 +944,8 @@ contract OpenStore is PluginManager {
     }
 
     function unassignBlockId(uint256 blockId) external {
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
 
         address validatorAddr = msg.sender;
 
@@ -957,8 +957,8 @@ contract OpenStore is PluginManager {
             revert OpenStoreError(ERROR_CANNOT_UNASSIGN_BLOCK);
         }
 
-        Validator storage validator = state.validators[validatorAddr];
-        uint256 proposalAmount = config.baseProposalAmount;
+        ValidatorV1 storage validator = state.validators[validatorAddr];
+        uint256 proposalAmount = cfg.baseProposalAmount;
 
         state.nextBlockId -= 1;
         state.validatorLocker[validatorAddr] = 0;
@@ -973,10 +973,10 @@ contract OpenStore is PluginManager {
      *      Anyone can call this to stake ETH for validation participation
      */
     function topUp() external payable {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         address validatorAddr = msg.sender;
 
-        Validator storage validator = state.validators[validatorAddr];
+        ValidatorV1 storage validator = state.validators[validatorAddr];
         validator.balance += msg.value;
         validator.totalBalance += msg.value;
 
@@ -994,17 +994,17 @@ contract OpenStore is PluginManager {
      *      Automatically updates system totals for registered validators
      */
     function withdraw(uint256 amount) external payable {
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         address validatorAddr = msg.sender;
 
-        Validator storage validator = state.validators[validatorAddr];
+        ValidatorV1 storage validator = state.validators[validatorAddr];
         if (validator.balance < amount) {
             revert OpenStoreError(ERROR_INSUFFICIENT_BALANCE);
         }
 
         // Ensure registered validators maintain minimum stake
-        if (validator.id > 0 && (validator.totalBalance - amount) < config.minStakeAmount) {
+        if (validator.id > 0 && (validator.totalBalance - amount) < cfg.minStakeAmount) {
             revert OpenStoreError(ERROR_INSUFFICIENT_STAKE);
         }
 
@@ -1068,15 +1068,15 @@ contract OpenStore is PluginManager {
         address target,
         bytes calldata data
     ) private {
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
         bytes memory callData = abi.encodeCall(
             IOpenStoreRequestHandler.onAddValidationRequest,
             (sender, msgValue, reqType, target, data)
         );
 
-        bytes memory result = Address.functionDelegateCall(config.requestHandler, callData);
+        bytes memory result = Address.functionDelegateCall(cfg.requestHandler, callData);
 
-        emit OpenStore.NewRequest(target, result.toUint256(0), reqType, data);
+        emit OpenStoreV1.NewRequest(target, result.toUint256(0), reqType, data);
     }
 
     /**
@@ -1088,8 +1088,8 @@ contract OpenStore is PluginManager {
      * @dev Used to examine queued requests before validation
      */
     function getRequest(uint256 requestId) external view returns (uint256, address, bytes memory) {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
-        RequestInfo memory info = state.requests[requestId];
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
+        RequestInfoV1 memory info = state.requests[requestId];
         return (info.reqType, info.target, info.data);
     }
 
@@ -1110,9 +1110,9 @@ contract OpenStore is PluginManager {
      *      Main proposals advance the chain, discussions provide alternatives for voting
      */
     function proposeBlock(
-        BlockRef memory blockRef
+        BlockRefV1 memory blockRef
     ) external {
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
         uint256 blockId = blockRef.id;
         address proposer = msg.sender;
         bool isDiscussion = blockRef.blockMask & BI_MASK_IS_DISCUSSION == 1;
@@ -1120,14 +1120,14 @@ contract OpenStore is PluginManager {
         if (blockRef.toRequestId <= blockRef.fromRequestId) {
             revert OpenStoreError(ERROR_INVALID_REQUEST_ID_RANGE);
         }
-        if ((blockRef.toRequestId - blockRef.fromRequestId) > config.maxReqPerBlock) {
+        if ((blockRef.toRequestId - blockRef.fromRequestId) > cfg.maxReqPerBlock) {
             revert OpenStoreError(ERROR_TOO_MANY_REQUESTS_IN_BLOCK);
         }
         if (proposer != blockRef.createdBy) {
             revert OpenStoreError(ERROR_SENDER_NOT_BLOCK_OWNER);
         }
 
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         if (state.nextRequestId < blockRef.toRequestId) {
             revert OpenStoreError(ERROR_INVALID_TO_REQUEST_ID);
         }
@@ -1140,15 +1140,15 @@ contract OpenStore is PluginManager {
             revert OpenStoreError(ERROR_PROPOSAL_HASH_ALREADY_EXISTS);
         }
 
-        uint256 baseProposalAmount = config.baseProposalAmount;
+        uint256 baseProposalAmount = cfg.baseProposalAmount;
 
-        Validator storage validator = state.validators[proposer];
+        ValidatorV1 storage validator = state.validators[proposer];
         // Update last activity
         validator.lastActivityBlockId = blockId;
         if (validator.id == 0) {
             revert OpenStoreError(ERROR_VALIDATOR_NOT_REGISTERED);
         }
-        if (validator.version < config.minValidatorVersion) {
+        if (validator.version < cfg.minValidatorVersion) {
             revert OpenStoreError(ERROR_VALIDATOR_UNSUPPORTED_VERSION);
         }
 
@@ -1184,7 +1184,7 @@ contract OpenStore is PluginManager {
                 revert OpenStoreError(ERROR_INVALID_FROM_REQUEST_ID);
             }
 
-            if (state.proposalsOnVoting > config.maxParallelProposals) {
+            if (state.proposalsOnVoting > cfg.maxParallelProposals) {
                 revert OpenStoreError(ERROR_MAX_PARALLEL_PROPOSALS_REACHED);
             }
             if (blockId != state.nextProposalBlockId) {
@@ -1192,7 +1192,7 @@ contract OpenStore is PluginManager {
             }
 
             address mainProposer = state.queue[blockId];
-            if (block.timestamp - state.nextProposalTimestampFrom <= config.proposalBlockWindow) {
+            if (block.timestamp - state.nextProposalTimestampFrom <= cfg.proposalBlockWindow) {
                 if (proposer != mainProposer) {
                     revert OpenStoreError(ERROR_SENDER_NOT_BLOCK_OWNER);
                 }
@@ -1204,9 +1204,9 @@ contract OpenStore is PluginManager {
                     revert OpenStoreError(ERROR_INSUFFICIENT_BALANCE_FOR_PROPOSAL);
                 }
 
-                state.validators[mainProposer].balance += baseProposalAmount - config.overdueProposalFee;
-                state.validators[mainProposer].totalBalance -= config.overdueProposalFee;
-                state.totalBalance -= config.overdueProposalFee;
+                state.validators[mainProposer].balance += baseProposalAmount - cfg.overdueProposalFee;
+                state.validators[mainProposer].totalBalance -= cfg.overdueProposalFee;
+                state.totalBalance -= cfg.overdueProposalFee;
 
                 validator.balance -= baseProposalAmount;
                 state.emergencyLocker[proposer] = blockId;
@@ -1245,17 +1245,17 @@ contract OpenStore is PluginManager {
      *      request validations while supporting the overall proposal
      */
     function vote(uint256 blockId, address validator, uint128 unavailabilityMask) external {
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
         address voterAddr = msg.sender;
 
-        Validator storage voter = state.validators[voterAddr];
+        ValidatorV1 storage voter = state.validators[voterAddr];
         // Update last activity
         voter.lastActivityBlockId = blockId;
         if (voter.id == 0) {
             revert OpenStoreError(ERROR_VOTER_NOT_REGISTERED);
         }
-        if (voter.version < config.minValidatorVersion) {
+        if (voter.version < cfg.minValidatorVersion) {
             revert OpenStoreError(ERROR_VALIDATOR_UNSUPPORTED_VERSION);
         }
         if (validator == voterAddr) {
@@ -1264,11 +1264,11 @@ contract OpenStore is PluginManager {
         if (state.blockProposals[blockId][validator].createdBy == address(0)) {
             revert OpenStoreError(ERROR_PROPOSAL_NOT_FOUND);
         }
-        uint256 votingClosingTime = state.proposalVotingCreatedAt[blockId] + config.voteBlockWindow;
+        uint256 votingClosingTime = state.proposalVotingCreatedAt[blockId] + cfg.voteBlockWindow;
         if (block.timestamp > votingClosingTime) {
             revert OpenStoreError(ERROR_VOTING_PERIOD_CLOSED);
         }
-        uint256 voteAmount = config.baseVoteAmount;
+        uint256 voteAmount = cfg.baseVoteAmount;
         if (voter.balance < voteAmount) {
             revert OpenStoreError(ERROR_INSUFFICIENT_BALANCE_FOR_VOTE);
         }
@@ -1307,25 +1307,25 @@ contract OpenStore is PluginManager {
      */
     function finalizeBlock(uint256 blockId) external {
         uint256 gasLeft = gasleft();
-        OpenStoreState storage state = OpenStoreStorage.openStoreState();
+        OpenStoreStateV1 storage state = OpenStoreStorageV1.openStoreState();
         if (blockId != state.nextFinalBlockId) {
             revert OpenStoreError(ERROR_BLOCK_ID_NOT_NEXT_TO_FINALIZE);
         }
 
         // Calculate reward
-        OpenStoreConfig storage config = OpenStoreStorage.openStoreConfig();
-        uint256 voteBlockWindow = config.voteBlockWindow;
+        OpenStoreConfigV1 storage cfg = OpenStoreStorageV1.openStoreConfig();
+        uint256 voteBlockWindow = cfg.voteBlockWindow;
 
         address[] memory proposers = state.blockProposers[blockId];
 
-        BlockRef storage preInfo = state.blockProposals[blockId][proposers[0]];
+        BlockRefV1 storage preInfo = state.blockProposals[blockId][proposers[0]];
         uint256 reqCount = preInfo.toRequestId - preInfo.fromRequestId;
         (
             address winner,
-            uint256 a,
-            uint256 b,
-            uint256 c,
-            uint256 d,
+            ,
+            ,
+            ,
+            ,
             uint256 unavailabilityVotersSnapshot,
             uint256 unavailableRequestCount
         ) = _calculateVotes(
@@ -1336,17 +1336,17 @@ contract OpenStore is PluginManager {
             revert OpenStoreError(ERROR_PROPOSAL_NOT_READY_TO_FINALIZE);
         }
 
-        BlockRef memory info = state.blockProposals[blockId][winner];
+        BlockRefV1 memory info = state.blockProposals[blockId][winner];
         info.result &= unavailabilityVotersSnapshot;
 
         // Calculate reward
         uint256 requestsCount = (info.toRequestId - info.fromRequestId) - unavailableRequestCount; // checked on proposeBlock stage
-        uint256 requestRewards = requestsCount * config.validationRequestAmount;
-        uint256 requestLose = unavailableRequestCount * config.validationRequestAmount;
+        uint256 requestRewards = requestsCount * cfg.validationRequestAmount;
+        uint256 requestLose = unavailableRequestCount * cfg.validationRequestAmount;
 
         // Reward winners
-        uint256 voteAmount = config.baseVoteAmount;
-        uint256 proposalAmount = config.baseProposalAmount;
+        uint256 voteAmount = cfg.baseVoteAmount;
+        uint256 proposalAmount = cfg.baseProposalAmount;
         uint256 reminder = _slashAndReward(
             state, proposers, blockId, winner, info.result, requestRewards,
             voteAmount, proposalAmount
@@ -1360,7 +1360,7 @@ contract OpenStore is PluginManager {
             IOpenStoreRequestHandler.onRemoveValidationRequests,
             (result, count, info.fromRequestId)
         );
-        Address.functionDelegateCall(config.requestHandler, callData);
+        Address.functionDelegateCall(cfg.requestHandler, callData);
 
         // Submission
         state.blocks[blockId] = info;
@@ -1372,7 +1372,7 @@ contract OpenStore is PluginManager {
             state.contractBalance += reminder + requestLose;
         }
 
-        if (state.proposalsOnVoting == config.maxParallelProposals) {
+        if (state.proposalsOnVoting == cfg.maxParallelProposals) {
             state.nextProposalTimestampFrom = block.timestamp;
         }
         state.proposalsOnVoting--;
@@ -1395,7 +1395,7 @@ contract OpenStore is PluginManager {
      * @return votesCounter The total votes (self-stake + voters' stake) for the given proposer.
      */
     function _getProposerVotesAndMasks(
-        OpenStoreState storage state,
+        OpenStoreStateV1 storage state,
         address proposer,
         uint256 blockId,
         uint256[] memory unavailableReqVotes
@@ -1444,7 +1444,7 @@ contract OpenStore is PluginManager {
      * @return unavailableRequestCount The count of requests marked as unavailable.
      */
     function _calculateUnavailabilitySnapshot(
-        OpenStoreState storage state,
+        OpenStoreStateV1 storage state,
         address winner,
         uint256 blockId,
         uint256 totalVotes,
@@ -1478,7 +1478,7 @@ contract OpenStore is PluginManager {
      * @dev Refactored to prevent "Stack Too Deep" errors by using helper functions.
      */
     function _calculateVotes(
-        OpenStoreState storage state,
+        OpenStoreStateV1 storage state,
         address[] memory proposers,
         uint256 blockId,
         uint256 blockReqCount,
@@ -1574,7 +1574,7 @@ contract OpenStore is PluginManager {
      *      - Uses two-pass algorithm to minimize storage operations
      */
     function _slashAndReward(
-        OpenStoreState storage state,
+        OpenStoreStateV1 storage state,
         address[] memory proposers,
         uint256 blockId,
         address winner,
@@ -1690,7 +1690,7 @@ contract OpenStore is PluginManager {
             revert OpenStoreError(ERROR_NOT_TARGET_OWNER);
         }
 
-        OpenStoreVault storage vault = OpenStoreStorage.openStoreVault();
+        OpenStoreVaultV1 storage vault = OpenStoreStorageV1.openStoreVault();
         if (trackId == 0) {
             revert OpenStoreError(ERROR_INVALID_TRACK_ID);
         }

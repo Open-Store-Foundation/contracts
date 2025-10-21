@@ -40,8 +40,15 @@ async function handle(cmd: string) {
     const adminSigner = await provider.getSigner("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266") // first hardhat address
     const userSigner = await provider.getSigner(process.env.TEST_ADDRESS!!)
 
+    const isProtocolZero = true;
     const deployer = new ContractsDeployer(
-        adminSigner, Defaults.StoreConfig.LH, Defaults.GreenfieldContracts.BscTest, Defaults.OracleFee.LH, true
+        adminSigner,
+        Defaults.StoreConfig.LH,
+        Defaults.GreenfieldContracts.BscTest,
+        Defaults.OracleFee.LH,
+        isProtocolZero,
+        true,
+
     )
 
     const cmds = cmd.toLowerCase().split(' ')
@@ -50,11 +57,13 @@ async function handle(cmd: string) {
             await deployer.deployAndSetupAll()
             core = deployer.coreManager
 
-            const result = await wait(core.contracts.store.topUp({value: topUpAmount}))
-            console.log(`Transaction topUp status: ${result?.status}`)
+            if (!isProtocolZero) {
+                const result = await wait(core.contracts.store.topUp({value: topUpAmount}))
+                console.log(`Transaction topUp status: ${result?.status}`)
 
-            const balance = await core.contracts.store.balance(adminSigner.address)
-            console.log(`Validator balance: ${balance}`)
+                const balance = await core.contracts.store.balance(adminSigner.address)
+                console.log(`Validator balance: ${balance}`)
+            }
 
             await adminSigner.sendTransaction({to: userSigner.address, value: parseEther("100")})
             break;
@@ -87,7 +96,8 @@ async function handle(cmd: string) {
             await app.updateAppOwner(
                 cmds[1] || Defaults.UserContractData.owner.domain,
                 cmds[2] || Defaults.UserContractData.owner.fingerprint,
-                cmds[3] || Defaults.UserContractData.owner.proof
+                cmds[3] || Defaults.UserContractData.owner.cert,
+                cmds[4] || Defaults.UserContractData.owner.proof
             )
             break;
 
@@ -125,9 +135,16 @@ async function handle(cmd: string) {
 
             await app.addBuild(versionCode)
             const ownerVersion = await core.lastVerifiedAssetVersion(await app.address())
-            await core.addAndroidValidationRequest(
-                await app.address(), versionCode, ownerVersion, 1, userSigner
-            )
+
+            if (isProtocolZero) {
+                await core.addAndroidValidationRequestV0(
+                    await app.address(), versionCode, ownerVersion, 1, userSigner
+                )
+            } else {
+                await core.addAndroidValidationRequest(
+                    await app.address(), versionCode, ownerVersion, 1, userSigner
+                )
+            }
 
             break;
 
@@ -154,6 +171,11 @@ async function handle(cmd: string) {
             break;
 
         case 't': // add to track
+            if (isProtocolZero) {
+                console.log('Not supported for V0 instead!')
+                break;
+            }
+
             if (!core || !app) {
                 console.log('Please create store and app first!')
                 break
@@ -169,6 +191,11 @@ async function handle(cmd: string) {
             break;
 
         case 'vr': // 'validate_req':
+            if (isProtocolZero) {
+                console.log('Not supported for V0 instead!')
+                break;
+            }
+
             if (!core) {
                 console.log('Please create store first!')
                 break;

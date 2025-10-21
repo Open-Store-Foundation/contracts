@@ -13,7 +13,7 @@ pragma solidity ^0.8.21;
  * @param blockMask Additional flags (bit 0: is discussion block)
  * @param createdBy The validator who created this block
  */
-struct BlockRef {
+struct BlockRefV1 {
     uint256 id;
 
     uint256 fromRequestId;
@@ -34,7 +34,7 @@ struct BlockRef {
  * @param target The contract address being validated (app/game/book etc.)
  * @param data Encoded request data (for android_build: versionCode, ownerVersion, trackId)
  */
-struct RequestInfo {
+struct RequestInfoV1 {
     // 1 - android_build
     uint256 reqType;
     // app/game/book etc
@@ -52,7 +52,7 @@ struct RequestInfo {
  * @param balance Available balance for proposals and operations
  * @param totalBalance Total staked balance including locked amounts
  */
-struct Validator {
+struct ValidatorV1 {
     uint256 id;
     uint256 version;
     uint256 blocksCreated;
@@ -66,13 +66,13 @@ struct Validator {
  * @dev Main state structure for the OpenStore consensus system
  * Contains all validator, request, proposal, voting, and block data
  */
-struct OpenStoreState {
+struct OpenStoreStateV1 {
     // Validators
     uint256 totalBalance;              // Total staked balance across all validators
     uint256 contractBalance;           // Contract's internal balance
     uint256 nextBlockId;               // Next block ID to be assigned
     address[] activeValidators;        // Array of registered validator addresses
-    mapping(address => Validator) validators;           // validator address -> validator data
+    mapping(address => ValidatorV1) validators;           // validator address -> validator data
     mapping(uint256 => address) queue;                  // blockId -> assigned validator
     mapping(address => uint256) validatorLocker;        // validator -> assigned blockId
     mapping(address => uint256) emergencyLocker;        // validator -> emergency blockId
@@ -80,7 +80,7 @@ struct OpenStoreState {
     // Requests
     uint256 nextRequestId;             // Next request ID to be assigned
     uint256 nextFinalRequestId;        // Next request ID to be finalized
-    mapping(uint256 => RequestInfo) requests;           // requestId -> request data
+    mapping(uint256 => RequestInfoV1) requests;           // requestId -> request data
 
     // Proposal
     uint256 nextProposalBlockId;       // Next block ID that can be proposed
@@ -90,7 +90,7 @@ struct OpenStoreState {
 
     mapping(uint256 => address[]) blockProposers;                    // blockId -> array of proposers
     mapping(uint256 => mapping(bytes32 => bool)) blockProposalsHashes; // blockId -> hash -> exists
-    mapping(uint256 => mapping(address => BlockRef)) blockProposals;    // blockId -> proposer -> block
+    mapping(uint256 => mapping(address => BlockRefV1)) blockProposals;    // blockId -> proposer -> block
 
     // Voting
     mapping(uint256 => mapping(address => address[])) blockVoters;  // blockId -> proposer -> voters
@@ -99,7 +99,7 @@ struct OpenStoreState {
 
     // Blocks
     uint256 nextFinalBlockId;          // Next block ID to be finalized
-    mapping(uint256 => BlockRef) blocks; // blockId -> finalized block data
+    mapping(uint256 => BlockRefV1) blocks; // blockId -> finalized block data
 }
 
 //////////////////
@@ -109,7 +109,7 @@ struct OpenStoreState {
 /**
  * @dev Storage for validated builds and release tracks
  */
-struct OpenStoreVault {
+struct OpenStoreVaultV1 {
     mapping(address => mapping(uint256 => uint256)) builds;     // app -> buildId -> ownerVersion
     mapping(address => mapping(uint256 => uint256)) tracks;     // app -> trackId -> latest buildId
                                                                 // Track IDs: 1=release, 2=open-beta, 3=alpha, custom=4+
@@ -123,7 +123,7 @@ struct OpenStoreVault {
 /**
  * @dev Configuration parameters for the OpenStore system
  */
-struct OpenStoreConfig {
+struct OpenStoreConfigV1 {
     // Main
     uint64 version;                     // Protocol version
     uint64 minValidatorVersion;         // Minimum required validator version
@@ -162,14 +162,14 @@ struct OpenStoreConfig {
  * @dev Library for managing OpenStore storage using diamond storage pattern
  * @notice Provides isolated storage for different components of the system
  */
-library OpenStoreStorage {
+library OpenStoreStorageV1 {
     bytes32 private constant OPENSTORE_STORAGE_POSITION = keccak256("openstore.state.v1");
     
     /**
      * @dev Returns storage reference for the main OpenStore state
      * @return state Storage reference to the consensus system state
      */
-    function openStoreState() internal pure returns (OpenStoreState storage state) {
+    function openStoreState() internal pure returns (OpenStoreStateV1 storage state) {
         bytes32 position = OPENSTORE_STORAGE_POSITION;
         assembly {
             state.slot := position
@@ -183,7 +183,7 @@ library OpenStoreStorage {
      * @dev Returns storage reference for the validated builds vault
      * @return state Storage reference to the vault containing validated builds
      */
-    function openStoreVault() internal pure returns (OpenStoreVault storage state) {
+    function openStoreVault() internal pure returns (OpenStoreVaultV1 storage state) {
         bytes32 position = OPENSTORE_VAULT_POSITION;
         assembly {
             state.slot := position
@@ -197,7 +197,7 @@ library OpenStoreStorage {
      * @dev Returns storage reference for the system configuration
      * @return state Storage reference to the configuration parameters
      */
-    function openStoreConfig() internal pure returns (OpenStoreConfig storage state) {
+    function openStoreConfig() internal pure returns (OpenStoreConfigV1 storage state) {
         bytes32 position = OPENSTORE_CONFIG_POSITION;
         assembly {
             state.slot := position
@@ -211,7 +211,7 @@ library OpenStoreStorage {
      * @param from The new configuration values to apply
      * @notice Validates configuration parameters and applies updates
      */
-    function setStoreConfig(OpenStoreConfig storage to, OpenStoreConfig memory from) internal {
+    function setStoreConfig(OpenStoreConfigV1 storage to, OpenStoreConfigV1 memory from) internal {
         // * Use setIsQueueSuspended and setIsQueueSuspended
         // to.isRequestsSuspended = from.isRequestsSuspended;
         // to.isQueueSuspended = from.isQueueSuspended;
