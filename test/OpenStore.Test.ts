@@ -2,7 +2,7 @@ import {expect} from "chai";
 import {ethers, network} from "hardhat";
 import {HardhatEthersSigner} from "@nomicfoundation/hardhat-ethers/signers";
 import {wait} from "./utils/contracts";
-import {OpenStore} from "../typechain-types";
+import {OpenStoreV1} from "../typechain-types";
 import {BigNumberish, parseEther} from "ethers";
 import {BLOCK_RESULT_STATUS, OPEN_STORE_ERRORS} from "./utils/const";
 import {applyUnavailabilityToResult, createResultMask, createUnavailabilityMask} from "./utils/mask";
@@ -26,8 +26,8 @@ describe("OpenStore", function () {
     let core: CoreManager;
     let devManager: DevManager;
     let appManager: AppManager;
-    let store: OpenStore;
-    let storeWithUser: OpenStore;
+    let store: OpenStoreV1;
+    let storeWithUser: OpenStoreV1;
     
     let admin: HardhatEthersSigner;
     let user1: HardhatEthersSigner;
@@ -51,7 +51,8 @@ describe("OpenStore", function () {
             admin, 
             Defaults.StoreConfig.LH,
             Defaults.GreenfieldContracts.BscTest, 
-            Defaults.OracleFee.LH
+            Defaults.OracleFee.LH,
+            false,
         );
 
         await deployer.deployAndSetupAll();
@@ -383,7 +384,7 @@ describe("OpenStore", function () {
     });
 
     describe("validator registration", function () {
-        let storeWithUser2: OpenStore;
+        let storeWithUser2: OpenStoreV1;
 
         beforeEach(async function () {
             storeWithUser2 = store.connect(user2);
@@ -826,10 +827,10 @@ describe("OpenStore", function () {
         let validator3: HardhatEthersSigner;
         let validatorDecider: HardhatEthersSigner;
 
-        let storeV1: OpenStore;
-        let storeV2: OpenStore;
-        let storeV3: OpenStore;
-        let storeDecider: OpenStore;
+        let storeV1: OpenStoreV1;
+        let storeV2: OpenStoreV1;
+        let storeV3: OpenStoreV1;
+        let storeDecider: OpenStoreV1;
 
         beforeEach(async function () {
             [,,, validator1, validator2, validator3, validatorDecider] = await ethers.getSigners();

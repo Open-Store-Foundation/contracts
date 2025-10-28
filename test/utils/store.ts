@@ -3,7 +3,7 @@ import {BLOCK_MASK, BLOCK_RESULT_STATUS} from "./const";
 import {expect} from "chai";
 import {HardhatEthersSigner} from "@nomicfoundation/hardhat-ethers/signers";
 import {createResultMask} from "./mask";
-import {AssetlinksOracle, OpenStore} from "../../typechain-types";
+import {AssetlinksOracle, OpenStoreV1} from "../../typechain-types";
 import {BigNumberish, id} from "ethers";
 import {AppManager, CoreManager} from "../../scripts/manager";
 import {Defaults} from "../../scripts/defaults";
@@ -97,9 +97,9 @@ export class OwnerHelper {
         this.appManager = appManager;
     }
 
-    async updateOwner(domain: string, fingerprint: string, proof: string) {
+    async updateOwner(domain: string, fingerprint: string, cert: string, proof: string) {
         await expect(
-            this.appManager.updateAppOwner(domain, fingerprint, proof)
+            this.appManager.updateAppOwner(domain, fingerprint, cert, proof)
         ).not.to.be.reverted;
 
         return await this.appOwner.ownerVersion()
@@ -119,10 +119,11 @@ export class OracleHelper {
         this.ownerHelper = ownerHelper;
     }
 
-    async updateOwnerAndVerify(domain?: string, fingerprint?: string, proof?: string) {
+    async updateOwnerAndVerify(domain?: string, fingerprint?: string, cert?: string, proof?: string) {
         const version = await this.ownerHelper.updateOwner(
             domain ?? "example.com",
             fingerprint ?? id("0xFF"),
+            cert ?? "0xFF",
             proof ?? "0xFF"
         );
         await this.verifyOwner(this.oracle);
@@ -144,11 +145,11 @@ export class OracleHelper {
 }
 
 export class StoreHelper {
-    public storeUser: OpenStore
+    public storeUser: OpenStoreV1
     public buildHelper: BuildHelper
     public ownerHelper: OwnerHelper
 
-    constructor(storeUser: OpenStore, buildHelper: BuildHelper, ownerHelper: OwnerHelper) {
+    constructor(storeUser: OpenStoreV1, buildHelper: BuildHelper, ownerHelper: OwnerHelper) {
         this.storeUser = storeUser;
         this.buildHelper = buildHelper;
         this.ownerHelper = ownerHelper;
@@ -183,7 +184,7 @@ export class StoreHelper {
     }
 }
 
-export function createStoreHelpers(core: CoreManager, appManager: AppManager, store: OpenStore): {
+export function createStoreHelpers(core: CoreManager, appManager: AppManager, store: OpenStoreV1): {
     buildHelper: BuildHelper,
     ownerHelper: OwnerHelper,
     oracleHelper: OracleHelper,

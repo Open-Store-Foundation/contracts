@@ -23,6 +23,7 @@ describe("AssetlinksOracle", function () {
 
     const DOMAIN = "https://example.com";
     const FINGERPRINT = getBytes(id("test_fingerprint"));
+    const CERT = getBytes(id("test_cert"));
     const PROOF = getBytes(id("test_proof"));
 
     beforeEach(async function () {
@@ -78,7 +79,7 @@ describe("AssetlinksOracle", function () {
 
     describe("enqueue function", function () {
         beforeEach(async function () {
-            await appManager.updateAppOwner(DOMAIN, FINGERPRINT, PROOF);
+            await appManager.updateAppOwner(DOMAIN, FINGERPRINT, CERT, PROOF);
         });
 
         it("should successfully enqueue verification request", async function () {
@@ -108,7 +109,7 @@ describe("AssetlinksOracle", function () {
                 value: Defaults.OracleFee.LH
             });
 
-            const [status, version, pendingVersion] = await oracle.getLastAssetStatus(appAddress);
+            const [status, version, pendingVersion] = await oracle.getLastAssetState(appAddress);
             expect(status).to.equal(0);
             expect(version).to.equal(0);
             expect(pendingVersion).to.equal(1);
@@ -177,7 +178,7 @@ describe("AssetlinksOracle", function () {
                 categoryId: 1
             }, user);
 
-            await app2Manager.updateAppOwner(DOMAIN + "2", FINGERPRINT, PROOF);
+            await app2Manager.updateAppOwner(DOMAIN + "2", FINGERPRINT, CERT, PROOF);
 
             const app1Address = await appManager.address();
             const app2Address = await app2Manager.address();
@@ -203,7 +204,7 @@ describe("AssetlinksOracle", function () {
     describe("create app and enqueue multicall function", function () {
         it("should successfully enqueue through multicall", async function () {
             const devAppsPlugin = devManager.devPlugins.apps;
-            const computedAddress = await devAppsPlugin.computeAppAddress(
+            const computedAddress = await devAppsPlugin["computeAppAddress(string,string,string,uint16,uint16,uint16)"](
                 "com.test.app1", "Test App", "Test Desc", 1, 1, 1
             );
 
@@ -221,8 +222,8 @@ describe("AssetlinksOracle", function () {
 
             const appOwnerPlugin = deployer.appPlugins.owner.contract;
             const setOwnerData = appOwnerPlugin.interface.encodeFunctionData(
-                "setAppOwner(address,string,bytes32[],bytes[])",
-                [user.address, DOMAIN, [FINGERPRINT], [PROOF]]
+                "setAppOwner(address,string,bytes32[],bytes[],bytes[])",
+                [user.address, DOMAIN, [FINGERPRINT], [CERT], [PROOF]]
             );
             calldata.push({
                 manager: computedAddress,
@@ -258,7 +259,7 @@ describe("AssetlinksOracle", function () {
 
         it("should not revert with OwnableUnauthorizedAccount for unauthorized multicall", async function () {
             const appAddress = await appManager.address();
-            await appManager.updateAppOwner(DOMAIN, FINGERPRINT, PROOF);
+            await appManager.updateAppOwner(DOMAIN, FINGERPRINT, CERT, PROOF);
 
             const data = oracle.interface.encodeFunctionData(
                 "enqueue(address,address)",
@@ -284,7 +285,7 @@ describe("AssetlinksOracle", function () {
 
     describe("finish function", function () {
         beforeEach(async function () {
-            await appManager.updateAppOwner(DOMAIN, FINGERPRINT, PROOF);
+            await appManager.updateAppOwner(DOMAIN, FINGERPRINT, CERT, PROOF);
             await oracleUser["enqueue(address)"](await appManager.address(), {
                 value: Defaults.OracleFee.LH
             });
@@ -304,7 +305,7 @@ describe("AssetlinksOracle", function () {
 
             expect(await oracle.lastVerifiedRequestId()).to.equal(1);
 
-            const [status, version, pendingVersion] = await oracle.getLastAssetStatus(appAddress);
+            const [status, version, pendingVersion] = await oracle.getLastAssetState(appAddress);
             expect(status).to.equal(1);
             expect(version).to.equal(1);
             expect(pendingVersion).to.equal(0);
@@ -320,7 +321,7 @@ describe("AssetlinksOracle", function () {
             expect(event).to.not.be.null;
             expect(event!.args[2]).to.equal(2);
 
-            const [status, version, pendingVersion] = await oracle.getLastAssetStatus(appAddress);
+            const [status, version, pendingVersion] = await oracle.getLastAssetState(appAddress);
             expect(status).to.equal(2);
             expect(version).to.equal(1);
             expect(pendingVersion).to.equal(0);
@@ -361,7 +362,7 @@ describe("AssetlinksOracle", function () {
             await oracle.finish(1, 1);
 
             const appOwnerPlugin = appManager["appPlugins"].owner;
-            await appOwnerPlugin["setAppOwner(string,bytes32[],bytes[])"](DOMAIN + "2", [FINGERPRINT], [PROOF]);
+            await appOwnerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](DOMAIN + "2", [FINGERPRINT], [CERT], [PROOF]);
             await oracleUser["enqueue(address)"](await appManager.address(), {
                 value: Defaults.OracleFee.LH
             });
@@ -374,7 +375,7 @@ describe("AssetlinksOracle", function () {
 
     describe("getLastVerifiedAssetVersion function", function () {
         beforeEach(async function () {
-            await appManager.updateAppOwner(DOMAIN, FINGERPRINT, PROOF);
+            await appManager.updateAppOwner(DOMAIN, FINGERPRINT, CERT, PROOF);
         });
 
         it("should return 0 for unverified app", async function () {
@@ -412,7 +413,7 @@ describe("AssetlinksOracle", function () {
             await oracle.finish(1, 1);
 
             const appOwnerPlugin = appManager["appPlugins"].owner;
-            await appOwnerPlugin["setAppOwner(string,bytes32[],bytes[])"](DOMAIN + "2", [FINGERPRINT], [PROOF]);
+            await appOwnerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](DOMAIN + "2", [FINGERPRINT], [CERT], [PROOF]);
 
             const verified = await oracle.getLastVerifiedAssetVersion(appAddress);
             expect(verified).to.equal(0);
@@ -429,7 +430,7 @@ describe("AssetlinksOracle", function () {
             expect(verified).to.equal(1);
 
             const appOwnerPlugin = appManager["appPlugins"].owner;
-            await appOwnerPlugin["setAppOwner(string,bytes32[],bytes[])"](DOMAIN + "2", [FINGERPRINT], [PROOF]);
+            await appOwnerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](DOMAIN + "2", [FINGERPRINT], [CERT], [PROOF]);
             await oracleUser["enqueue(address)"](appAddress, {
                 value: Defaults.OracleFee.LH
             });
@@ -442,7 +443,7 @@ describe("AssetlinksOracle", function () {
 
     describe("view functions", function () {
         beforeEach(async function () {
-            await appManager.updateAppOwner(DOMAIN, FINGERPRINT, PROOF);
+            await appManager.updateAppOwner(DOMAIN, FINGERPRINT, CERT, PROOF);
         });
 
         it("should return correct oracle state", async function () {
@@ -462,7 +463,7 @@ describe("AssetlinksOracle", function () {
 
         it("should return correct last state for app", async function () {
             const appAddress = await appManager.address();
-            let [status, version, pendingVersion] = await oracle.getLastAssetStatus(appAddress);
+            let [status, version, pendingVersion] = await oracle.getLastAssetState(appAddress);
             expect(status).to.equal(0);
             expect(version).to.equal(0);
             expect(pendingVersion).to.equal(0);
@@ -471,14 +472,14 @@ describe("AssetlinksOracle", function () {
                 value: Defaults.OracleFee.LH
             });
 
-            [status, version, pendingVersion] = await oracle.getLastAssetStatus(appAddress);
+            [status, version, pendingVersion] = await oracle.getLastAssetState(appAddress);
             expect(status).to.equal(0);
             expect(version).to.equal(0);
             expect(pendingVersion).to.equal(1);
 
             await oracle.finish(1, 1);
 
-            [status, version, pendingVersion] = await oracle.getLastAssetStatus(appAddress);
+            [status, version, pendingVersion] = await oracle.getLastAssetState(appAddress);
             expect(status).to.equal(1);
             expect(version).to.equal(1);
             expect(pendingVersion).to.equal(0);
@@ -500,7 +501,7 @@ describe("AssetlinksOracle", function () {
 
     describe("edge cases and gas optimization", function () {
         beforeEach(async function () {
-            await appManager.updateAppOwner(DOMAIN, FINGERPRINT, PROOF);
+            await appManager.updateAppOwner(DOMAIN, FINGERPRINT, CERT, PROOF);
         });
 
         it("should handle exact verification fee amount", async function () {
@@ -524,7 +525,7 @@ describe("AssetlinksOracle", function () {
 
             for (let i = 0; i < statusTypes.length; i++) {
                 const appOwnerPlugin = appManager["appPlugins"].owner;
-                await appOwnerPlugin["setAppOwner(string,bytes32[],bytes[])"](DOMAIN + i, [FINGERPRINT], [PROOF]);
+                await appOwnerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](DOMAIN + i, [FINGERPRINT], [CERT], [PROOF]);
                 await oracleUser["enqueue(address)"](await appManager.address(), {
                     value: Defaults.OracleFee.LH
                 });
@@ -548,7 +549,7 @@ describe("AssetlinksOracle", function () {
                 categoryId: 1
             }, user);
 
-            await largeAppManager.updateAppOwner(DOMAIN, FINGERPRINT, PROOF);
+            await largeAppManager.updateAppOwner(DOMAIN, FINGERPRINT, CERT, PROOF);
 
             const tx = await oracleUser["enqueue(address)"](await largeAppManager.address(), {
                 value: Defaults.OracleFee.LH
@@ -563,7 +564,7 @@ describe("AssetlinksOracle", function () {
             const appOwnerPlugin = appManager["appPlugins"].owner;
             expect(await appOwnerPlugin.ownerVersion()).to.equal(0);
 
-            await appOwnerPlugin["setAppOwner(string,bytes32[],bytes[])"](DOMAIN, [FINGERPRINT], [PROOF]);
+            await appOwnerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](DOMAIN, [FINGERPRINT], [CERT], [PROOF]);
             expect(await appOwnerPlugin.ownerVersion()).to.equal(1);
 
             await oracleUser["enqueue(address)"](await appManager.address(), {
@@ -576,9 +577,9 @@ describe("AssetlinksOracle", function () {
 
         it("should handle multiple owner version updates", async function () {
             const appOwnerPlugin = appManager["appPlugins"].owner;
-            await appOwnerPlugin["setAppOwner(string,bytes32[],bytes[])"](DOMAIN, [FINGERPRINT], [PROOF]);
-            await appOwnerPlugin["setAppOwner(string,bytes32[],bytes[])"](DOMAIN + "2", [FINGERPRINT], [PROOF]);
-            await appOwnerPlugin["setAppOwner(string,bytes32[],bytes[])"](DOMAIN + "3", [FINGERPRINT], [PROOF]);
+            await appOwnerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](DOMAIN, [FINGERPRINT], [CERT], [PROOF]);
+            await appOwnerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](DOMAIN + "2", [FINGERPRINT], [CERT], [PROOF]);
+            await appOwnerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](DOMAIN + "3", [FINGERPRINT], [CERT], [PROOF]);
 
             expect(await appOwnerPlugin.ownerVersion()).to.equal(3);
 
@@ -597,6 +598,7 @@ describe("AssetlinksOracle", function () {
             await defaultAppManager.updateAppOwner(
                 defaultOwner.domain,
                 defaultOwner.fingerprint,
+                defaultOwner.cert,
                 defaultOwner.proof
             );
 

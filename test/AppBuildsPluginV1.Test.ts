@@ -56,10 +56,6 @@ describe("AppBuildsPluginV1", function () {
         await deployer.deployAndSetupAll();
         core = deployer.coreManager;
 
-        const topUpAmount = ethers.parseEther("15");
-        const result = await wait(core.contracts.store.topUp({value: topUpAmount}));
-        expect(result.status).to.equal(1);
-
         devManager = await core.devManager("TestDev", user1);
         appManager = await devManager.createApp(sampleAppData, user1);
         buildsPlugin = appManager["appPlugins"].builds;

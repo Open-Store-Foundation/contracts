@@ -53,7 +53,7 @@ export class CoreManager {
     }
 
     async enqueueAssetLinkRequest(appAddr: string, user: HardhatEthersSigner) {
-        const oracle = this.coreContractFor(user).oracle;
+        const oracle = this.oracleFor(user);
 
         verbose("Is last version verified: ", oracle.getLastVerifiedAssetVersion(appAddr))
 
@@ -76,14 +76,18 @@ export class CoreManager {
         verbose(result.logs)
     }
 
-    async addToReleaseTrack(appAddr: string, version: number, user: HardhatEthersSigner) {
-        const store = this.coreContractFor(user).store;
+    async addAndroidValidationRequestV0(target: string, version: BigNumberish, ownerVersion: BigNumberish, trackId: number, user: HardhatEthersSigner) {
+        const store = this.coreContractFor(user).storeV0;
 
-        const result = await wait(
-            store["addBuildToTrack(address,uint256,uint256)"](appAddr, 1, version)
-        );
+        const params = AppManager.encodeBuildData(BigInt(version), ownerVersion, trackId)
+        verbose(`Encoded data: ${params}`)
 
-        verbose("Transaction status: ", result.status)
+        const result = await wait(store["addValidationRequest(uint256,address,bytes)"](
+                1, target, params
+            )
+        )
+
+        verbose(`Transaction addValidationRequest status: ${result?.status}, ${spent(result)}`)
     }
 
     async addAndroidValidationRequest(target: string, version: BigNumberish, ownerVersion: BigNumberish, trackId: number, user: HardhatEthersSigner) {
@@ -99,6 +103,16 @@ export class CoreManager {
         )
 
         verbose(`Transaction addValidationRequest status: ${result?.status}, ${spent(result)}`)
+    }
+
+    async addToReleaseTrack(appAddr: string, version: number, user: HardhatEthersSigner) {
+        const store = this.coreContractFor(user).store;
+
+        const result = await wait(
+            store["addBuildToTrack(address,uint256,uint256)"](appAddr, 1, version)
+        );
+
+        verbose("Transaction status: ", result.status)
     }
 
     async proposeAndFinalize() {
@@ -156,12 +170,14 @@ export class CoreManager {
             oracle: this.oracleFor(runner),
             factory: this.factoryFor(runner),
             store: this.storeFor(runner),
+            storeV0: this.storeV0For(runner),
 
             multicallAddress: this.contracts.multicallAddress,
             storageAddress: this.contracts.storageAddress,
             oracleAddress: this.contracts.oracleAddress,
             factoryAddress: this.contracts.factoryAddress,
             storeAddress: this.contracts.storeAddress,
+            storeV0Address: this.contracts.storeV0Address,
         }
     }
 
@@ -182,7 +198,19 @@ export class CoreManager {
     }
 
     storeFor(runner: ContractRunner) {
+        if (!this.contracts.store) {
+            return undefined
+        }
+
         return this.contracts.store.connect(runner)
+    }
+
+    storeV0For(runner: ContractRunner) {
+        if (!this.contracts.storeV0) {
+            return undefined
+        }
+
+        return this.contracts.storeV0.connect(runner)
     }
 }
 
@@ -235,9 +263,9 @@ export class DevManager {
 export class AppManager {
 
     constructor(
-        private readonly app: AppAsset,
-        private readonly appPlugins: AppPluginContracts,
-        private readonly user: HardhatEthersSigner,
+        readonly app: AppAsset,
+        readonly appPlugins: AppPluginContracts,
+        readonly user: HardhatEthersSigner,
     ) {}
 
     async domain() {
@@ -277,23 +305,26 @@ export class AppManager {
         verbose(`Transaction updateDistribution status: ${result?.status}, ${spent(result)}`)
     }
 
-    async updateAppOwner(domain: string, finger: BytesLike, proof: BytesLike) {
+    async updateAppOwner(domain: string, finger: BytesLike, certs: BytesLike, proof: BytesLike) {
         const result = await wait(
-            this.appPlugins.owner["setAppOwner(string,bytes32[],bytes[])"](
+            this.appPlugins.owner["setAppOwner(string,bytes32[],bytes[],bytes[])"](
                 domain,
                 [getBytes(finger)],
+                [getBytes(certs)],
                 [getBytes(proof)],
             )
         );
 
         verbose(`Transaction updateAppOwner status: ${result?.status}, ${spent(result)}`)
+
+        return result
     }
 
     async addBuild(
         versionCode: number = 1
     ) {
-        const referenceId = "0x00000000000000000000000000000000000000000000000000000000001973b2"
-        const checksum = "0xCEA56514B3DE4832173B162947896760EA42A45B567773A3D1C0F5F05587E9EF"
+        const referenceId = "0x00000000000000000000000000000000000000000000000000000000001b5352"
+        const checksum = "0xcea56514b3de4832173b162947896760ea42a45b567773a3d1c0f5f05587e9ef"
         const result = await wait(
             this.appPlugins.builds["addBuild((bytes,uint16,string,uint256,bytes32))"](
                 {

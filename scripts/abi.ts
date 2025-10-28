@@ -6,14 +6,15 @@ async function main() {
     const contracts = [
         "AppAsset",
         "AppOwnerPluginV1",
+        "AppBuildsPluginV1",
         "PublisherAccountFactory",
         "PublisherAccount",
         "PublisherAccountAppsPluginV1",
         "AppDistributionPluginV1",
         "PublisherGreenfieldPluginV1",
         "AssetlinksOracle",
-        "AppBuildsPluginV1",
-        "OpenStore",
+        "OpenStoreV1",
+        "OpenStoreV0",
         "TrustedMulticall",
     ]
 

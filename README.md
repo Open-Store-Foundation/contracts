@@ -11,18 +11,19 @@ An on-chain plugin-driven store for publishing and distributing application buil
 
 ### Deployed Addresses (BSC Testnet)
 
-| Contract | Address |
-| --- | --- |
-| ContractStorage | `0x76e55C2791AdB0c6a2CD5b8317b188608325961E` |
-| ContractsFactory | `0xE994189222edE5fF9056aa00BB70a1eeF42880C7` |
-| AssetlinksOracle | `0x0F61D8D6c9D6886ac7cba72716E1b98C4379E0f7` |
-| OpenStoreRequestHandlerV1 | `0x43e8A87e6fB8e9BbF2aB4121F40E9781A1489831` |
-| OpenStore | `0x6Edac88EA58168a47ab61836bCbAD0Ac844498A6` |
-| AppOwnerPluginV1 | `0x77F67523F8b0e7D4519B91344F629c2180447B0f` |
-| AppBuildsPluginV1 | `0x0F09669588952cA48368dd8361662D549CcCE987` |
-| AppDistributionPluginV1 | `0x51C3A4282FB9F00705Be26f11cB7EE4Cc20274C4` |
-| PublisherAccountAppsPluginV1 | `0x48A93cF38ac4cE6FE16f2E8b8a9a7B24b46445A8` |
-| PublisherGreenfieldPluginV1 | `0x06cF16521A903971FF8F2635931dA3768e294350` |
+| Contract                     | Address |
+|------------------------------| --- |
+| Multicall                    | `0x3f7AdDD276bC5c1a2Fffb329DD718f1fa0625D84` |
+| ContractStorage              | `0x66E4Ae87d237A7630CF1acf9EA32E027bF2096c2` |
+| PublisherAccountFactory      | `0x7bf2b3901E3198268ec071F43A08dBD365017354` |
+| AssetlinksOracle             | `0xCA21F6ab7D9Cf14444028394016066778Cbe1B4B` |
+| OpenStoreRequestHandlerV0    | `0x5f56DccEfe191f1FBf1ca12600D71D1aCABf1298` |
+| OpenStoreV0                  | `0x4dc802c0E64Eb0C9d9b278F70b6a7d6e21908a46` |
+| AppOwnerPluginV1             | `0xD2dfb8a2D0f2b90f3F912566F4c4Fb0a3e9Bc336` |
+| AppBuildsPluginV1            | `0xe00e09e2028046DE01C9aEc7C683cF0ce08016B1` |
+| AppDistributionPluginV1      | `0x76F7A70d7eCf4483Fa08D10511F997c97b247737` |
+| PublisherAccountAppsPluginV1 | `0x374DA7507CB00FAEc54fa4226eF6c45eC99bA2E4` |
+| PublisherGreenfieldPluginV1  | `0xaE3f8bD0a3112aE5860a72DE494A238997210756` |
 
 ### Prerequisites
 
@@ -40,7 +41,6 @@ yarn install
 Create a `.env` file in the project root.
 
 ```bash
-BSC_TEST_DEPLOY_PK=
 DEPLOY_PK=
 DEPLOY_ADDRESS=
 TEST_PK=
@@ -52,6 +52,8 @@ CMC_API=
 # Optional for ABI export
 CONTRACT_TS_DIRS=
 CONTRACTS_JSON_DIRS=
+# Required for graph.ts
+PUBLISHER_FACTORY=
 ```
 
 ### ⚠️ Multicall address (required)
@@ -159,11 +161,12 @@ yarn cli:bsctest
 - **defaults.ts**: default data for testing
 - **cli.ts**: localhost/testnet deploy tool; uses `TEST_PK` and `TEST_ADDRESS`
 
+
 ### Hardhat Networks
 
 Hardhat network configuration is defined in `hardhat.config.ts`.
 
-- `bsctest` uses chainId 97 and reads `BSC_TEST_DEPLOY_PK` and `DEPLOY_PK` from the environment.
+- `bsctest` uses chainId 97 and reads `DEPLOY_PK` from the environment.
 
 ### ABIs and Typechain
 
@@ -173,5 +176,3 @@ Hardhat network configuration is defined in `hardhat.config.ts`.
 ### License
 
 See `LICENSE`.
-
-
