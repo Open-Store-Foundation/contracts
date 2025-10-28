@@ -37,7 +37,7 @@ contract AppOwnerPluginV1 is DelegatedPlugin, VersionableOwner {
     /// @param code Error code indicating the specific failure type
     error AppOwnerPluginError(uint32 code);
 
-    event AppOwnerChanged(uint256 version, bytes[] certs, bytes[] proofs);
+    event AppOwnerChanged(uint256 indexed version, bytes[] certs, bytes[] proofs);
 
     uint32 constant private PROOF_EMPTY = 1;
     uint32 constant private FINGERPRINT_PROOF_MISMATCH = 2;

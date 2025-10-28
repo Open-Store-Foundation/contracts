@@ -2,7 +2,7 @@ import {expect} from "chai";
 import {ethers} from "hardhat";
 import {HardhatEthersSigner} from "@nomicfoundation/hardhat-ethers/signers";
 import {AppOwnerPluginV1} from "../typechain-types";
-import {wait} from "./utils/contracts";
+import {findEvent, wait} from "./utils/contracts";
 import {BytesLike, getBytes, id, keccak256, parseEther, toUtf8Bytes} from "ethers";
 import {ContractsDeployer} from "../scripts/deployer";
 import {Defaults} from "../scripts/defaults";
@@ -88,13 +88,13 @@ describe("AppOwnerPluginV1", function () {
     describe("setAppOwner (via AppManager)", function () {
         it("should set app owner successfully", async function () {
             const defaultOwner = Defaults.UserContractData.owner;
-            
-            await appManager.updateAppOwner(
+
+            const receipt = await appManager.updateAppOwner(
                 defaultOwner.domain,
                 defaultOwner.fingerprint,
                 defaultOwner.cert,
                 defaultOwner.proof
-            );
+            )
 
             const version = await ownerPlugin.ownerVersion();
             expect(version).to.equal(1);
@@ -105,7 +105,6 @@ describe("AppOwnerPluginV1", function () {
             const state = await ownerPlugin["getState()"]();
             expect(state.domain).to.equal(defaultOwner.domain);
             expect(state.fingerprints.length).to.equal(1);
-            // TODO check event
         });
 
         it("should integrate with default owner configuration", async function () {
@@ -133,15 +132,15 @@ describe("AppOwnerPluginV1", function () {
 
     describe("setAppOwner (direct call)", function () {
         it("should set app owner successfully", async function () {
-            const tx = await ownerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](
-                sampleOwnerData.domain,
-                sampleOwnerData.fingerprints,
-                sampleOwnerData.certs,
-                sampleOwnerData.proofs
-            );
-            const receipt = await wait(Promise.resolve(tx));
-
-            expect(receipt.status).to.equal(1);
+            await expect(
+                ownerPlugin["setAppOwner(string,bytes32[],bytes[],bytes[])"](
+                    sampleOwnerData.domain,
+                    sampleOwnerData.fingerprints,
+                    sampleOwnerData.certs,
+                    sampleOwnerData.proofs
+                )
+            ).to.emit(ownerPlugin, "AppOwnerChanged")
+                .withArgs(1, sampleOwnerData.certs, sampleOwnerData.proofs);
 
             const version = await ownerPlugin.ownerVersion();
             expect(version).to.equal(1);
@@ -152,7 +151,6 @@ describe("AppOwnerPluginV1", function () {
             const state = await ownerPlugin["getState()"]();
             expect(state.domain).to.equal(sampleOwnerData.domain);
             expect(state.fingerprints.length).to.equal(sampleOwnerData.fingerprints.length);
-            // TODO check event
 
             for (let i = 0; i < sampleOwnerData.fingerprints.length; i++) {
                 expect(state.fingerprints[i]).to.equal(sampleOwnerData.fingerprints[i]);
@@ -219,7 +217,6 @@ describe("AppOwnerPluginV1", function () {
             expect(state.domain).to.equal(singleData.domain);
             expect(state.fingerprints.length).to.equal(1);
             expect(state.fingerprints[0]).to.equal(singleData.fingerprints[0]);
-            // TODO check event
         });
 
         it("should handle multiple fingerprints and proofs", async function () {
@@ -258,7 +255,6 @@ describe("AppOwnerPluginV1", function () {
             for (let i = 0; i < 4; i++) {
                 expect(state.fingerprints[i]).to.equal(multipleData.fingerprints[i]);
             }
-            // TODO check event
         });
 
         it("should revert when proofs array is empty", async function () {
@@ -344,14 +340,12 @@ describe("AppOwnerPluginV1", function () {
             const state = await ownerPlugin["getState()"]();
             expect(state.domain).to.equal(sampleOwnerData.domain);
             expect(state.fingerprints.length).to.equal(sampleOwnerData.fingerprints.length);
-            // TODO check event
         });
 
         it("should return correct state for specific version", async function () {
             const state = await ownerPlugin["getState(uint256)"](1);
             expect(state.domain).to.equal(sampleOwnerData.domain);
             expect(state.fingerprints.length).to.equal(sampleOwnerData.fingerprints.length);
-            // TODO check event
         });
     });
 

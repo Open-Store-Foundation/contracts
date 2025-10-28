@@ -1,14 +1,13 @@
 import {expect} from "chai";
 import {ethers} from "hardhat";
 import {HardhatEthersSigner} from "@nomicfoundation/hardhat-ethers/signers";
-import {attachContract, getFactory, findEvent, wait} from "./utils/contracts";
+import {findEvent, getFactory, wait} from "./utils/contracts";
 import {PublisherAccountAppsPluginV1} from "../typechain-types";
-import {id, parseEther} from "ethers";
+import {parseEther} from "ethers";
 import {ContractsDeployer} from "../scripts/deployer";
 import {Defaults} from "../scripts/defaults";
 import {CoreManager, DevManager} from "../scripts/manager";
 import {attachOrDeployMulticastContract} from "./utils/multicall";
-import {App} from "@bnb-chain/greenfield-cosmos-types/tendermint/version/types";
 import {disableLogging} from "./utils/logger";
 
 describe("PublisherAccountAppsPluginV1", function () {
@@ -54,7 +53,7 @@ describe("PublisherAccountAppsPluginV1", function () {
 
     describe("computeAppAddress", function () {
         it("should compute app address correctly", async function () {
-            const computedAddress = await plugin.computeAppAddress(
+            const computedAddress = await plugin["computeAppAddress(string,string,string,uint16,uint16,uint16)"](
                 sampleAppData.id,
                 sampleAppData.name,
                 sampleAppData.description,
@@ -68,7 +67,7 @@ describe("PublisherAccountAppsPluginV1", function () {
         });
 
         it("should return same address for same parameters", async function () {
-            const address1 = await plugin.computeAppAddress(
+            const address1 = await plugin["computeAppAddress(string,string,string,uint16,uint16,uint16)"](
                 sampleAppData.id,
                 sampleAppData.name,
                 sampleAppData.description,
@@ -77,7 +76,7 @@ describe("PublisherAccountAppsPluginV1", function () {
                 sampleAppData.categoryId
             );
 
-            const address2 = await plugin.computeAppAddress(
+            const address2 = await plugin["computeAppAddress(string,string,string,uint16,uint16,uint16)"](
                 sampleAppData.id,
                 sampleAppData.name,
                 sampleAppData.description,
@@ -90,7 +89,7 @@ describe("PublisherAccountAppsPluginV1", function () {
         });
 
         it("should return different addresses for different packages", async function () {
-            const address1 = await plugin.computeAppAddress(
+            const address1 = await plugin["computeAppAddress(string,string,string,uint16,uint16,uint16)"](
                 "com.example.app1",
                 sampleAppData.name,
                 sampleAppData.description,
@@ -99,7 +98,7 @@ describe("PublisherAccountAppsPluginV1", function () {
                 sampleAppData.categoryId
             );
 
-            const address2 = await plugin.computeAppAddress(
+            const address2 = await plugin["computeAppAddress(string,string,string,uint16,uint16,uint16)"](
                 "com.example.app2",
                 sampleAppData.name,
                 sampleAppData.description,
@@ -112,7 +111,7 @@ describe("PublisherAccountAppsPluginV1", function () {
         });
 
         it("should handle empty strings", async function () {
-            const computedAddress = await plugin.computeAppAddress(
+            const computedAddress = await plugin["computeAppAddress(string,string,string,uint16,uint16,uint16)"](
                 "",
                 "",
                 "",
@@ -126,7 +125,7 @@ describe("PublisherAccountAppsPluginV1", function () {
         });
 
         it("should handle unicode characters", async function () {
-            const computedAddress = await plugin.computeAppAddress(
+            const computedAddress = await plugin["computeAppAddress(string,string,string,uint16,uint16,uint16)"](
                 "com.测试.应用",
                 "テストアプリ🚀",
                 "测试应用描述",
@@ -151,7 +150,7 @@ describe("PublisherAccountAppsPluginV1", function () {
         });
 
         it("should create app at computed address", async function () {
-            const computedAddress = await plugin.computeAppAddress(
+            const computedAddress = await plugin["computeAppAddress(string,string,string,uint16,uint16,uint16)"](
                 sampleAppData.id,
                 sampleAppData.name,
                 sampleAppData.description,
@@ -191,7 +190,8 @@ describe("PublisherAccountAppsPluginV1", function () {
                     99,
                     99
                 )
-            ).to.be.not.reverted;
+            ).to.be.revertedWithCustomError(plugin, "PublisherAccountAppsPluginError")
+                .withArgs(1);
         });
 
         it("should revert when called by non-owner", async function () {

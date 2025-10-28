@@ -29,7 +29,7 @@ const config: HardhatUserConfig = {
             ],
         },
         localhost: {
-            url: "http://127.0.0.1:8545",
+            url: "http://192.168.0.9:8545",
             accounts: [
                 "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", // first hardhat account
                 `0x${process.env.TEST_PK!!}`
@@ -44,7 +44,7 @@ const config: HardhatUserConfig = {
         },
     ],
     gasReporter: {
-        enabled: Boolean(process.env.REPORT_GAS) || false,
+        enabled: Boolean(JSON.parse(process.env.REPORT_GAS || "false")),
         outputFile: "reports/gas",
         coinmarketcap: process.env.CMC_API
     },

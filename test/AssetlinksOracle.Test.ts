@@ -109,7 +109,7 @@ describe("AssetlinksOracle", function () {
                 value: Defaults.OracleFee.LH
             });
 
-            const [status, version, pendingVersion] = await oracle.getLastAssetStatus(appAddress);
+            const [status, version, pendingVersion] = await oracle.getLastAssetState(appAddress);
             expect(status).to.equal(0);
             expect(version).to.equal(0);
             expect(pendingVersion).to.equal(1);
@@ -204,7 +204,7 @@ describe("AssetlinksOracle", function () {
     describe("create app and enqueue multicall function", function () {
         it("should successfully enqueue through multicall", async function () {
             const devAppsPlugin = devManager.devPlugins.apps;
-            const computedAddress = await devAppsPlugin.computeAppAddress(
+            const computedAddress = await devAppsPlugin["computeAppAddress(string,string,string,uint16,uint16,uint16)"](
                 "com.test.app1", "Test App", "Test Desc", 1, 1, 1
             );
 
@@ -305,7 +305,7 @@ describe("AssetlinksOracle", function () {
 
             expect(await oracle.lastVerifiedRequestId()).to.equal(1);
 
-            const [status, version, pendingVersion] = await oracle.getLastAssetStatus(appAddress);
+            const [status, version, pendingVersion] = await oracle.getLastAssetState(appAddress);
             expect(status).to.equal(1);
             expect(version).to.equal(1);
             expect(pendingVersion).to.equal(0);
@@ -321,7 +321,7 @@ describe("AssetlinksOracle", function () {
             expect(event).to.not.be.null;
             expect(event!.args[2]).to.equal(2);
 
-            const [status, version, pendingVersion] = await oracle.getLastAssetStatus(appAddress);
+            const [status, version, pendingVersion] = await oracle.getLastAssetState(appAddress);
             expect(status).to.equal(2);
             expect(version).to.equal(1);
             expect(pendingVersion).to.equal(0);
@@ -463,7 +463,7 @@ describe("AssetlinksOracle", function () {
 
         it("should return correct last state for app", async function () {
             const appAddress = await appManager.address();
-            let [status, version, pendingVersion] = await oracle.getLastAssetStatus(appAddress);
+            let [status, version, pendingVersion] = await oracle.getLastAssetState(appAddress);
             expect(status).to.equal(0);
             expect(version).to.equal(0);
             expect(pendingVersion).to.equal(0);
@@ -472,14 +472,14 @@ describe("AssetlinksOracle", function () {
                 value: Defaults.OracleFee.LH
             });
 
-            [status, version, pendingVersion] = await oracle.getLastAssetStatus(appAddress);
+            [status, version, pendingVersion] = await oracle.getLastAssetState(appAddress);
             expect(status).to.equal(0);
             expect(version).to.equal(0);
             expect(pendingVersion).to.equal(1);
 
             await oracle.finish(1, 1);
 
-            [status, version, pendingVersion] = await oracle.getLastAssetStatus(appAddress);
+            [status, version, pendingVersion] = await oracle.getLastAssetState(appAddress);
             expect(status).to.equal(1);
             expect(version).to.equal(1);
             expect(pendingVersion).to.equal(0);

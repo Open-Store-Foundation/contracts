@@ -52,6 +52,8 @@ CMC_API=
 # Optional for ABI export
 CONTRACT_TS_DIRS=
 CONTRACTS_JSON_DIRS=
+# Required for graph.ts
+PUBLISHER_FACTORY=
 ```
 
 ### ⚠️ Multicall address (required)
@@ -158,6 +160,7 @@ yarn cli:bsctest
   - `BSCSCAN_API`: set to enable contract verification (upload sources)
 - **defaults.ts**: default data for testing
 - **cli.ts**: localhost/testnet deploy tool; uses `TEST_PK` and `TEST_ADDRESS`
+
 
 ### Hardhat Networks
 

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.21;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "../interfaces/TransferableOwner.sol";
 import {AppAsset} from "../app/AppAsset.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 import {IContractStorage} from "../common/ContractStorage.sol";
@@ -11,12 +9,10 @@ import {PublisherFacetStorageV1} from "./PublisherFacetStorageV1.sol";
 
 /**
  * @dev Storage structure for the PublisherAccountAppsPluginV1
- * @param apps Mapping from app ID hash to deployed app contract address
- * @param pendingTransfers Mapping from app ID hash to approved new owner address
+ * @param appsHashes Mapping from app ID hash to deployed app contract address
  */
 struct PublisherAccountAppsPluginV1State {
     mapping(bytes32 => address) appsHashes; // keccak(app.id) -> address
-    mapping(bytes32 => address) pendingTransfers; // app -> newPublisher
 }
 
 /**
@@ -32,9 +28,6 @@ contract PublisherAccountAppsPluginV1 is Plugin {
 
     // Error codes
     uint32 private constant APP_ALREADY_EXISTS = 1;
-    uint32 private constant APP_NOT_FOUND = 2;
-    uint32 private constant TRANSFER_NOT_APPROVED = 3;
-    uint32 private constant INVALID_APP_OWNER = 4;
 
     // Plugins
     bytes32 public constant APP_PLUGINS = keccak256("openstore.plugins.default.AppAsset.v1");
@@ -46,15 +39,7 @@ contract PublisherAccountAppsPluginV1 is Plugin {
     /// @param name The display name of the app
     event AppCreated(address indexed appAddress, string id, string name);
 
-    /// @dev Emitted when an app transfer is approved
-    /// @param appAddress The address of the app being transferred
-    /// @param newOwner The address approved to receive the app
-    event AppTransferApproved(address indexed appAddress, address indexed oldOwner, address indexed newOwner);
-
-    /// @dev Emitted when an app transfer is completed
-    /// @param appAddress The address of the transferred app
-    /// @param newOwner The address that received the app ownership
-    event AppTransferred(address indexed appAddress, address indexed oldOwner, address indexed newOwner);
+    
 
     address private immutable pluginStorage;
 
@@ -90,6 +75,16 @@ contract PublisherAccountAppsPluginV1 is Plugin {
      * @param _categoryId The category identifier
      * @return appAddress The computed CREATE2 deployment address for the app
      */
+    /**
+     * @dev Computes deterministic app address using default plugin set from contract storage
+     * @param _id App package identifier
+     * @param _name App display name
+     * @param _description App description
+     * @param _protocolId Protocol identifier
+     * @param _platformId Platform identifier
+     * @param _categoryId Category identifier
+     * @return appAddress Predicted address of the app contract
+     */
     function computeAppAddress(
         string memory _id,
         string memory _name,
@@ -108,6 +103,39 @@ contract PublisherAccountAppsPluginV1 is Plugin {
     }
 
     /**
+     * @dev Computes deterministic app address using caller-provided plugin configuration
+     * @param _id App package identifier
+     * @param _name App display name
+     * @param _description App description
+     * @param _protocolId Protocol identifier
+     * @param _platformId Platform identifier
+     * @param _categoryId Category identifier
+     * @param _plugins Plugin implementation addresses
+     * @param _data Initialization calldata per plugin
+     * @param _selectors Function selectors per plugin
+     * @return appAddress Predicted address of the app contract
+     */
+    function computeAppAddress(
+        string memory _id,
+        string memory _name,
+        string memory _description,
+        uint16 _protocolId,
+        uint16 _platformId,
+        uint16 _categoryId,
+        address[] memory _plugins,
+        bytes[] memory _data,
+        bytes4[][] memory _selectors
+    ) external view returns (address) {
+        bytes32 idHash = keccak256(bytes(_id));
+        bytes memory bytecode = _getBytecode(
+            _id, _name, _description,
+            _protocolId, _platformId, _categoryId,
+            _plugins, _data, _selectors
+        );
+        return Create2.computeAddress(idHash, keccak256(bytecode));
+    }
+
+    /**
      * @dev Creates a new app contract (owner only)
      * @param _id The unique identifier for the app
      * @param _name The display name of the app
@@ -115,6 +143,9 @@ contract PublisherAccountAppsPluginV1 is Plugin {
      * @param _protocolId The protocol identifier
      * @param _platformId The platform identifier
      * @param _categoryId The category identifier
+     */
+    /**
+     * @dev Creates an app using default plugins (owner only)
      */
     function createApp(
         string memory _id,
@@ -129,6 +160,27 @@ contract PublisherAccountAppsPluginV1 is Plugin {
     }
 
     /**
+     * @dev Creates an app using caller-provided plugins (owner only)
+     */
+    function createApp(
+        string memory _id,
+        string memory _name,
+        string memory _description,
+        uint16 _protocolId,
+        uint16 _platformId,
+        uint16 _categoryId,
+        address[] memory _plugins,
+        bytes[] memory _data,
+        bytes4[][] memory _selectors
+    ) external onlyOwner {
+        _createApp(
+            _id, _name, _description,
+            _protocolId, _platformId, _categoryId,
+            _plugins, _data, _selectors
+        );
+    }
+
+    /**
      * @dev Creates a new app contract via multicall
      * @param sender The address initiating the multicall
      * @param _id The unique identifier for the app
@@ -137,6 +189,10 @@ contract PublisherAccountAppsPluginV1 is Plugin {
      * @param _protocolId The protocol identifier
      * @param _platformId The platform identifier
      * @param _categoryId The category identifier
+     */
+    /**
+     * @dev Creates an app using default plugins via multicall
+     * @param sender Publisher account expected to be the owner
      */
     function createApp(
         address sender,
@@ -153,6 +209,30 @@ contract PublisherAccountAppsPluginV1 is Plugin {
     }
 
     /**
+     * @dev Creates an app using caller-provided plugins via multicall
+     * @param sender Publisher account expected to be the owner
+     */
+    function createApp(
+        address sender,
+        string memory _id,
+        string memory _name,
+        string memory _description,
+        uint16 _protocolId,
+        uint16 _platformId,
+        uint16 _categoryId,
+        address[] memory _plugins,
+        bytes[] memory _data,
+        bytes4[][] memory _selectors
+    ) external onlyMulticall {
+        _checkOwner(sender);
+        _createApp(
+            _id, _name, _description,
+            _protocolId, _platformId, _categoryId,
+            _plugins, _data, _selectors
+        );
+    }
+
+    /**
      * @dev Internal function to create an app with validation
      * @param _id The unique identifier for the app
      * @param _name The display name of the app
@@ -160,6 +240,9 @@ contract PublisherAccountAppsPluginV1 is Plugin {
      * @param _protocolId The protocol identifier
      * @param _platformId The platform identifier
      * @param _categoryId The category identifier
+     */
+    /**
+     * @dev Internal: creates app using default plugins
      */
     function _createApp(
         string memory _id,
@@ -170,20 +253,47 @@ contract PublisherAccountAppsPluginV1 is Plugin {
         uint16 _platformId,
         uint16 _categoryId
     ) private {
-        bytes32 idHash = keccak256(bytes(_id));
-        PublisherAccountAppsPluginV1State storage state = state();
+        (address[] memory addrs, bytes[] memory data, bytes4[][] memory selectors) = IContractStorage(pluginStorage).getDefaultPluginsById(APP_PLUGINS);
+        _createApp(
+            _id,
+            _name,
+            _description,
+            _protocolId,
+            _platformId,
+            _categoryId,
+            addrs,
+            data,
+            selectors
+        );
+    }
 
-        if (state.appsHashes[idHash] != address(0)) {
+    /**
+     * @dev Internal: creates app using provided plugin configuration
+     */
+    function _createApp(
+        string memory _id,
+        string memory _name,
+        string memory _description,
+        uint16 _protocolId,
+        uint16 _platformId,
+        uint16 _categoryId,
+        address[] memory _plugins,
+        bytes[] memory _data,
+        bytes4[][] memory _selectors
+    ) private {
+        bytes32 idHash = keccak256(bytes(_id));
+        PublisherAccountAppsPluginV1State storage s = state();
+        if (s.appsHashes[idHash] != address(0)) {
             revert PublisherAccountAppsPluginError(APP_ALREADY_EXISTS);
         }
 
         bytes memory bytecode = _getBytecode(
             _id, _name, _description,
-            _protocolId, _platformId, _categoryId
+            _protocolId, _platformId, _categoryId,
+            _plugins, _data, _selectors
         );
         address appAddress = Create2.deploy(0, idHash, bytecode);
-
-        state.appsHashes[idHash] = appAddress;
+        s.appsHashes[idHash] = appAddress;
         emit AppCreated(appAddress, _id, _name);
     }
 
@@ -197,6 +307,9 @@ contract PublisherAccountAppsPluginV1 is Plugin {
      * @param _categoryId The category identifier
      * @return bytecode The complete constructor-encoded bytecode for app deployment
      */
+    /**
+     * @dev Internal: builds creation bytecode using default plugins
+     */
     function _getBytecode(
         string memory _id,
         string memory _name,
@@ -208,7 +321,33 @@ contract PublisherAccountAppsPluginV1 is Plugin {
     ) private view returns (bytes memory) {
         IContractStorage store = IContractStorage(pluginStorage);
         (address[] memory addrs, bytes[] memory data, bytes4[][] memory selectors) = store.getDefaultPluginsById(APP_PLUGINS);
-        
+        return _getBytecode(
+            _id,
+            _name,
+            _description,
+            _protocolId,
+            _platformId,
+            _categoryId,
+            addrs,
+            data,
+            selectors
+        );
+    }
+
+    /**
+     * @dev Internal: builds creation bytecode using provided plugin configuration
+     */
+    function _getBytecode(
+        string memory _id,
+        string memory _name,
+        string memory _description,
+        uint16 _protocolId,
+        uint16 _platformId,
+        uint16 _categoryId,
+        address[] memory _plugins,
+        bytes[] memory _data,
+        bytes4[][] memory _selectors
+    ) private view returns (bytes memory) {
         bytes memory constructorArgs = abi.encode(
             address(this),
             _id,
@@ -219,11 +358,10 @@ contract PublisherAccountAppsPluginV1 is Plugin {
             _platformId,
             _categoryId,
 
-            addrs,
-            data,
-            selectors
+            _plugins,
+            _data,
+            _selectors
         );
-        
         return abi.encodePacked(type(AppAsset).creationCode, constructorArgs);
     }
 
@@ -234,119 +372,5 @@ contract PublisherAccountAppsPluginV1 is Plugin {
     function getAppById(bytes32 idHash) external view returns (address) {
         PublisherAccountAppsPluginV1State storage state = state();
         return state.appsHashes[idHash];
-    }
-
-    /**
-     * @dev Approves a transfer of app ownership to a new owner (owner only)
-     * @notice Only one pending transfer can exist per app at a time. Approving a new transfer overwrites any previous approval.
-     * @param idHash The keccak hash of unique identifier of the app
-     * @param newOwner The address that will be approved to accept the transfer
-     * @custom:throws APP_NOT_FOUND if the app doesn't belong to this publisher account
-     */
-    function approveAppTransfer(bytes32 idHash, address newOwner) external onlyOwner {
-        _approveAppTransfer(idHash, newOwner);
-    }
-
-    /**
-     * @dev Approves a transfer of app ownership to a new owner via multicall
-     * @param sender The address initiating the multicall
-     * @param idHash The keccak hash of unique identifier of the app
-     * @param newOwner The address that will be approved to accept the transfer
-     * @custom:throws APP_NOT_FOUND if the app doesn't belong to this publisher account
-     */
-    function approveAppTransfer(address sender, bytes32 idHash, address newOwner) external onlyMulticall {
-        _checkOwner(sender);
-        _approveAppTransfer(idHash, newOwner);
-    }
-
-    /**
-     * @dev Internal function to approve app transfer
-     * @param idHash The keccak hash of unique identifier of the app to transfer
-     * @param newOwner The address that will be approved to accept the transfer
-     */
-    function _approveAppTransfer(bytes32 idHash, address newOwner) private {
-        PublisherAccountAppsPluginV1State storage s = state();
-        address app = s.appsHashes[idHash];
-
-        if (app == address(0)) {
-            revert PublisherAccountAppsPluginError(APP_NOT_FOUND);
-        }
-
-        address owner = address(this);
-        if (Ownable(app).owner() != owner) {
-            revert PublisherAccountAppsPluginError(INVALID_APP_OWNER);
-        }
-
-        s.pendingTransfers[idHash] = newOwner;
-
-        emit AppTransferApproved(app, owner, newOwner);
-    }
-
-    /**
-     * @dev Transfers an app record from another publisher to this publisher.
-     * @notice Calls commitAppTransfer on the old publisher and records the app under this publisher.
-     * @param publisher The address of the old publisher account
-     * @param idHash The keccak hash of unique identifier of the app to transfer
-     * @custom:throws APP_ALREADY_EXISTS if an app with the given ID already exists here
-     */
-    function acceptAppTransfer(address publisher, bytes32 idHash) external onlyOwner {
-        _acceptAppTransfer(publisher, idHash);
-    }
-
-    /**
-     * @dev Transfers an app record from another publisher to this publisher via multicall.
-     * @param sender The address initiating the multicall
-     * @param publisher The address of the old publisher account
-     * @param idHash The keccak hash of unique identifier of the app to transfer
-     * @custom:throws APP_ALREADY_EXISTS if an app with the given ID already exists here
-     */
-    function acceptAppTransfer(address sender, address publisher, bytes32 idHash) external onlyMulticall {
-        _checkOwner(sender);
-        _acceptAppTransfer(publisher, idHash);
-    }
-
-    /**
-     * @dev Internal function to transfer an app record from another publisher.
-     * @param publisher The address of the old publisher account
-     * @param idHash The keccak hash of unique identifier of the app to transfer
-     */
-    function _acceptAppTransfer(address publisher, bytes32 idHash) private {
-        PublisherAccountAppsPluginV1State storage s = state();
-
-        if (s.appsHashes[idHash] != address(0)) {
-            revert PublisherAccountAppsPluginError(APP_ALREADY_EXISTS);
-        }
-
-        address app = PublisherAccountAppsPluginV1(publisher)
-            ._commitAppTransfer(address(this), idHash);
-
-        s.appsHashes[idHash] = app;
-    }
-
-    /**
-     * @dev Called by the new publisher to take an app from this publisher.
-     * @notice Only the approved recipient can call this to complete the transfer.
-     * @param newPublisher The address of the new publisher account
-     * @param idHash The keccak hash of unique identifier of the app to transfer
-     * @custom:throws TRANSFER_NOT_APPROVED if caller is not the approved recipient
-     */
-    function _commitAppTransfer(address newPublisher, bytes32 idHash) public returns (address) {
-        PublisherAccountAppsPluginV1State storage s = state();
-        address approvedOwner = s.pendingTransfers[idHash];
-
-        if (approvedOwner != newPublisher) {
-            revert PublisherAccountAppsPluginError(TRANSFER_NOT_APPROVED);
-        }
-
-        address app = s.appsHashes[idHash];
-        delete s.appsHashes[idHash];
-        delete s.pendingTransfers[idHash];
-
-        TransferableOwner(app)
-            .transferOwnership(newPublisher);
-
-        emit AppTransferred(app, address(this), newPublisher);
-
-        return app;
     }
 }

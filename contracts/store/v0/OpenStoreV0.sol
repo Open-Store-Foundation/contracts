@@ -36,6 +36,8 @@ contract OpenStoreV0 is PluginManager {
 
     event ConfigChanged();
 
+    event AppVisibilityChanged(address indexed target, bool isVisible);
+
     /// @notice Emitted when a new validation request is submitted
     /// @param target The target contract address
     /// @param requestId The unique request identifier
@@ -93,9 +95,9 @@ contract OpenStoreV0 is PluginManager {
      */
     function getLastAppVersionAndOwnership(address asset, uint256 channel) external view returns (uint256, uint256) {
         OpenStoreVaultV0 storage vault = OpenStoreStorageV0.openStoreVault();
-        uint256 buildId = vault.tracks[asset][channel];
-        uint256 ownership = vault.builds[asset][buildId];
-        return (buildId, ownership);
+        uint256 versionCode = vault.tracks[asset][channel];
+        uint256 ownership = vault.builds[asset][versionCode];
+        return (versionCode, ownership);
     }
 
     /**
@@ -111,6 +113,8 @@ contract OpenStoreV0 is PluginManager {
 
         OpenStoreVaultV0 storage vault = OpenStoreStorageV0.openStoreVault();
         vault.visibility[asset] = isVisible;
+
+        emit AppVisibilityChanged(asset, isVisible);
     }
 
     /////////////////////////////////
@@ -180,44 +184,4 @@ contract OpenStoreV0 is PluginManager {
 
         emit NewRequest(target, result.toUint256(0), reqType, data);
     }
-
-    //////////////////////
-    // Distribution Track Management
-    //////////////////////
-
-//    /**
-//     * @notice Adds a build version to a distribution track
-//     * @param target The target asset contract address
-//     * @param trackId The distribution track identifier (e.g., 1=stable, 2=beta, 3=alpha)
-//     * @param versionCode The build version code to add to the track
-//     * @dev Only the asset owner can manage their distribution tracks
-//     *      Tracks allow different release channels (stable, beta, etc.)
-//     *      Version codes must increase (no downgrades allowed)
-//     *      Track ID must be non-zero
-//     */
-//    function addBuildToTrack(address target, uint256 trackId, uint256 versionCode) external {
-//        _addBuildToTrack(msg.sender, target, trackId, versionCode);
-//    }
-//
-//    function addBuildToTrack(address sender, address target, uint256 trackId, uint256 versionCode) external onlyMulticall {
-//        _addBuildToTrack(sender, target, trackId, versionCode);
-//    }
-//
-//    function _addBuildToTrack(address sender, address target, uint256 trackId, uint256 versionCode) internal {
-//        if (sender != PluginDelegatedOwner(target).delegateOwner()) {
-//            revert OpenStoreError(ERROR_NOT_TARGET_OWNER);
-//        }
-//
-//        OpenStoreVaultV0 storage vault = OpenStoreStorageV0.openStoreVault();
-//        if (trackId == 0) {
-//            revert OpenStoreError(ERROR_INVALID_TRACK_ID);
-//        }
-//
-//        if (vault.tracks[target][trackId] > versionCode) {
-//            revert OpenStoreError(ERROR_BUILD_VERSION_DOWNGRADED);
-//        }
-//
-//        vault.tracks[target][trackId] = versionCode;
-//        emit AddedToTrack(target, trackId, versionCode);
-//    }
 }

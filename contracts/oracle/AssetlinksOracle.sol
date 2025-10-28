@@ -83,10 +83,13 @@ contract AssetlinksOracle is PluginManager, IAssetlinksOracle {
     // State
     uint256 private verificationAmount;
 
-    mapping(uint256 => VerificationRequest) public queue;
+    mapping(uint256 => VerificationRequest) public queue; // reqId -> req
+    mapping(address => uint256) public pendingVersions; // asset - version
     uint256 public nextQueueRequestId;
 
-    mapping(address => VerificationSet) public states;
+    mapping(address => mapping(uint256 => uint256)) public states; // asset - version - status
+    mapping(address => uint256) public lastVersions; // asset - version
+    mapping(address => mapping(uint256 => uint256)) public lastSuccessAt; // asset - version - timestamp
     uint256 public lastVerifiedRequestId;
 
     /**
@@ -129,12 +132,29 @@ contract AssetlinksOracle is PluginManager, IAssetlinksOracle {
      * @dev Returns the verification status for a given contract
      * @param obj The contract address to check
      * @return status The last verification status
+     * @return time Delta between last success status and now
+     */
+    function getAssetStatus(address obj, uint256 version) external view returns (uint256, uint256) {
+        uint256 lastSuccessAt = lastSuccessAt[obj][version];
+        if (lastSuccessAt > 0) {
+            lastSuccessAt = block.timestamp - lastSuccessAt;
+        }
+
+        return (states[obj][version], lastSuccessAt);
+    }
+
+    /**
+     * @dev Returns the verification status for a given contract
+     * @param obj The contract address to check
+     * @return status The last verification status
      * @return version The last verified version
      * @return pendingVersion The version currently pending verification
      */
-    function getLastAssetStatus(address obj) external view returns (uint256, uint256, uint256) {
-        VerificationSet memory _state = states[obj];
-        return (_state.last.status, _state.last.version, _state.pendingVersion);
+    function getLastAssetState(address obj) external view returns (uint256, uint256, uint256) {
+        uint256 version = lastVersions[obj];
+        uint256 status = states[obj][version];
+        uint256 pendingVersion = pendingVersions[obj];
+        return (status, version, pendingVersion);
     }
 
     /**
@@ -142,12 +162,13 @@ contract AssetlinksOracle is PluginManager, IAssetlinksOracle {
      * @param target The contract address to check
      * @return The verified version number, or 0 if not currently verified
      */
-    function getLastVerifiedAssetVersion(address target) external view returns (uint256) {
+    function getLastVerifiedAssetVersion(address target) external view override returns (uint256) {
         VersionableOwner plugin = VersionableOwner(target);
-        VerificationSet memory _state = states[target];
+        uint256 version = plugin.ownerVersion();
+        uint256 status = states[target][version];
 
-        if (_state.last.status == SUCCESS_STATUS && _state.last.version == plugin.ownerVersion()) {
-            return _state.last.version;
+        if (status == SUCCESS_STATUS) {
+            return version;
         }
 
         return 0;
@@ -195,13 +216,13 @@ contract AssetlinksOracle is PluginManager, IAssetlinksOracle {
             revert AssetlinksOracleError(INVALID_VERSION);
         }
 
-        VerificationSet storage state = states[obj];
-        if (state.pendingVersion != 0) {
+        uint256 pendingVersion = pendingVersions[obj];
+        if (pendingVersion != 0) {
             revert AssetlinksOracleError(ALREADY_IN_REVIEW);
         }
-        state.pendingVersion = version;
 
         queue[requestId] = VerificationRequest(obj, version);
+        pendingVersions[obj] = version;
         nextQueueRequestId = requestId + 1;
 
         emit EnqueueVerification(obj, version, requestId);
@@ -239,13 +260,16 @@ contract AssetlinksOracle is PluginManager, IAssetlinksOracle {
         address obj = request.target;
         uint256 version = request.version;
 
-        VerificationSet storage state = states[obj];
+        uint256 oldStatus = states[obj][version];
+        if (oldStatus == 1 || status == 1) {
+            lastSuccessAt[obj][version] = block.timestamp;
+        }
 
-        state.last.version = version;
-        state.last.status = status;
-        state.pendingVersion = 0;
+        states[obj][version] = status;
+        lastVersions[obj] = version;
 
         delete queue[requestId];
+        delete pendingVersions[obj];
         emit FinalizeVerification(obj, version, status);
     }
 }

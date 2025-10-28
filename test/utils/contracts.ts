@@ -5,7 +5,7 @@ import {
     ContractTransactionResponse,
     EventLog,
     FunctionFragment,
-    Log, Signer
+    Log, LogDescription, Signer
 } from "ethers";
 import {ethers} from "hardhat";
 import {Address} from "./types";
@@ -93,7 +93,7 @@ export function findEvent(
     name: string,
     events: Array<EventLog | Log> | undefined,
     contract?: BaseContract
-): EventLog | any | null {
+): EventLog | LogDescription | null {
     if (!events) {
         return null
     }

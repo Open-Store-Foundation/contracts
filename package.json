@@ -12,6 +12,7 @@
     "coverage": "yarn hardhat clean; yarn hardhat coverage",
     "size": "yarn hardhat size-contracts",
     "abi": "yarn hardhat run scripts/abi.ts --network localhost",
+    "graph": "yarn hardhat run scripts/graph.ts --network localhost",
     "license:spdx": "ts-node scripts/spdx.ts",
     "test:main": "yarn hardhat test",
     "test:lh": "yarn hardhat test --network localhost",

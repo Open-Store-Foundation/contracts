@@ -263,9 +263,9 @@ export class DevManager {
 export class AppManager {
 
     constructor(
-        private readonly app: AppAsset,
-        private readonly appPlugins: AppPluginContracts,
-        private readonly user: HardhatEthersSigner,
+        readonly app: AppAsset,
+        readonly appPlugins: AppPluginContracts,
+        readonly user: HardhatEthersSigner,
     ) {}
 
     async domain() {
@@ -316,13 +316,15 @@ export class AppManager {
         );
 
         verbose(`Transaction updateAppOwner status: ${result?.status}, ${spent(result)}`)
+
+        return result
     }
 
     async addBuild(
         versionCode: number = 1
     ) {
-        const referenceId = "0x00000000000000000000000000000000000000000000000000000000001973b2"
-        const checksum = "0xCEA56514B3DE4832173B162947896760EA42A45B567773A3D1C0F5F05587E9EF"
+        const referenceId = "0x00000000000000000000000000000000000000000000000000000000001b5352"
+        const checksum = "0xcea56514b3de4832173b162947896760ea42a45b567773a3d1c0f5f05587e9ef"
         const result = await wait(
             this.appPlugins.builds["addBuild((bytes,uint16,string,uint256,bytes32))"](
                 {

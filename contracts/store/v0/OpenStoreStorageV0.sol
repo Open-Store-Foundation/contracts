@@ -29,8 +29,8 @@ struct OpenStoreStateV0 {
 struct OpenStoreVaultV0 {
     mapping(address => bool) visibility; // app -> is_visible
 
-    mapping(address => mapping(uint256 => uint256)) builds; // app -> buildId -> ownerVersion
-    mapping(address => mapping(uint256 => uint256)) tracks; // app -> trackId -> latest buildId
+    mapping(address => mapping(uint256 => uint256)) builds; // app -> versionCode -> ownerVersion TODO check
+    mapping(address => mapping(uint256 => uint256)) tracks; // app -> trackId -> versionCode
 }
 
 //////////////////
