@@ -221,7 +221,7 @@ export class ContractsDeployer {
     }
 
     async deployStoreV1(oracleAddress: string) {
-        if (this._storeV0) {
+        if (this._store || this._storeV0) {
             throw Error("Store is already deployed!")
         }
 
@@ -251,7 +251,7 @@ export class ContractsDeployer {
     }
 
     async deployStoreV0(oracleAddress: string) {
-        if (this._storeV0) {
+        if (this._store || this._storeV0) {
             throw Error("Store is already deployed!")
         }
 
