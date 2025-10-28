@@ -274,6 +274,7 @@ export class ContractsDeployer {
         )
         const storeAddress = await store.getAddress()
         verbose(`StoreV0 contract: ${storeAddress}`)
+        verbose(`StoreV0 block: `)
 
         this._storeV0 = store
         this._storeV0Address = storeAddress
